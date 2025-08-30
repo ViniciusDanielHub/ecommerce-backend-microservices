@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("FILE_DATABASE_URL")
+}
+
+enum UploadProvider {
+  LOCAL
+  CLOUDINARY
+  AWS
+}
+
+model UploadedFile {
+  id           String        @id @default(cuid())
+  originalName String
+  filename     String        @unique
+  publicId     String?       // Para Cloudinary/AWS
+  url          String
+  mimetype     String
+  size         Int
+  provider     UploadProvider
+  path         String?       // Para arquivos locais
+  userId       String?       // Quem fez o upload
+  metadata     Json?         // Metadados adicionais
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?     // Soft delete
+
+  @@map("uploaded_files")
+}
+
+model UploadConfig {
+  id             String        @id @default(cuid())
+  provider       UploadProvider
+  maxFileSize    Int           // Em bytes
+  allowedFormats String        // Lista separada por vírgula
+  isActive       Boolean       @default(true)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  @@map("upload_configs")
+}

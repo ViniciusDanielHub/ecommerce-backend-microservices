@@ -1,0 +1,125 @@
+services:
+  # Database para Auth Service
+  auth-db:
+    image: postgres:15
+    container_name: auth-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: auth_service
+    ports:
+      - "5433:5432"
+    volumes:
+      - auth_db_data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  # Auth Service
+  auth-service:
+    build: ./services/auth-service
+    container_name: auth-service
+    ports:
+      - "3001:3001"
+    depends_on:
+      - auth-db
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_service
+    networks:
+      - microservices-net
+    volumes:
+      - ./services/auth-service:/app
+      - /app/node_modules
+
+  # Database para Product Service
+  product-db:
+    image: postgres:15
+    container_name: product-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: product_service
+    ports:
+      - "5435:5432"
+    volumes:
+      - product_db_data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  # Database para Category Service
+  category-db:
+    image: postgres:15
+    container_name: category-db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: category_service
+    ports:
+      - "5434:5432"
+    volumes:
+      - category_db_data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  # Product Service
+  product-service:
+    build: ./services/product-service
+    container_name: product-service
+    ports:
+      - "3005:3005"
+    depends_on:
+      - product-db
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@product-db:5432/product_service
+      - PORT=3005
+      - CATEGORY_SERVICE_URL=http://category-service:3004
+    networks:
+      - microservices-net
+    volumes:
+      - ./services/product-service:/app
+      - /app/node_modules
+
+  # Category Service
+  category-service:
+    build: ./services/category-service
+    container_name: category-service
+    ports:
+      - "3004:3004"
+    depends_on:
+      - category-db
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@category-db:5432/category_service
+      - SERVICE_PORT=3004
+    networks:
+      - microservices-net
+    volumes:
+      - ./services/category-service:/app
+      - /app/node_modules
+
+  # API Gateway
+  api-gateway:
+    build: ./api-gateway
+    container_name: api-gateway
+    ports:
+      - "3000:3000"
+    depends_on:
+      - auth-service
+      - category-service
+    environment:
+      - GATEWAY_PORT=3000
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - CATEGORY_SERVICE_URL=http://category-service:3004
+      - JWT_SECRET=your-super-secret-jwt-key
+    networks:
+      - microservices-net
+    volumes:
+      - ./api-gateway:/app
+      - /app/node_modules
+
+volumes:
+  auth_db_data:
+  product_db_data:
+  category_db_data:
+
+networks:
+  microservices-net:
+    driver: bridge

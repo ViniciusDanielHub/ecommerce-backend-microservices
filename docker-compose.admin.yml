@@ -1,0 +1,43 @@
+version: '3.8'
+
+services:
+  admin-db:
+    image: postgres:15-alpine
+    container_name: admin-db
+    environment:
+      POSTGRES_DB: admin_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5437:5432"
+    volumes:
+      - admin_db_data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  admin-service:
+    build:
+      context: ./services/admin-service
+      dockerfile: Dockerfile
+    container_name: admin-service
+    ports:
+      - "3003:3003"
+    environment:
+      - ADMIN_DATABASE_URL=postgresql://postgres:postgres@admin-db:5432/admin_service
+      - JWT_SECRET=your-super-secret-jwt-key
+      - AUTH_SERVICE_URL=http://auth-service:3001
+      - USER_SERVICE_URL=http://user-service:3002
+    depends_on:
+      - admin-db
+    volumes:
+      - ./services/admin-service:/app
+      - /app/node_modules
+    networks:
+      - microservices-net
+
+volumes:
+  admin_db_data:
+
+networks:
+  microservices-net:
+    external: true

@@ -1,0 +1,45 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("ADMIN_DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SELLER
+}
+
+enum UploadProvider {
+  LOCAL
+  CLOUDINARY
+  AWS
+}
+
+model SystemConfig {
+  id        String   @id @default(cuid())
+  key       String   @unique
+  value     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("system_configs")
+}
+
+model AdminLog {
+  id          String   @id @default(cuid())
+  adminId     String   // ID do admin que fez a ação
+  action      String   // "promote_user", "delete_user", "update_config", etc.
+  targetId    String?  // ID do objeto afetado (usuário, produto, etc.)
+  targetType  String?  // "user", "product", "category", etc.
+  description String
+  metadata    Json?    // Dados adicionais da ação
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@map("admin_logs")
+}

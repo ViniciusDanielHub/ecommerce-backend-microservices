@@ -1,0 +1,51 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("USER_DATABASE_URL")
+}
+
+enum Role {
+  USER
+  ADMIN
+  SELLER
+}
+
+model UserProfile {
+  id              String    @id @default(cuid())
+  userId          String    @unique // ID do usuário do auth-service
+  name            String
+  email           String    @unique
+  role            Role      @default(USER)
+  avatar          String?
+  phone           String?
+  address         String?
+  city            String?
+  state           String?
+  zipCode         String?
+  country         String?   @default("Brazil")
+  birthDate       DateTime?
+  bio             String?
+  preferences     Json?     // Preferências do usuário (tema, notificações, etc.)
+  isActive        Boolean   @default(true)
+  
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  @@map("user_profiles")
+}
+
+model UserActivity {
+  id          String   @id @default(cuid())
+  userId      String
+  action      String   // "login", "profile_update", "password_change", etc.
+  description String?
+  metadata    Json?    // Dados adicionais da ação
+  ip          String?
+  userAgent   String?
+  createdAt   DateTime @default(now())
+
+  @@map("user_activities")
+}

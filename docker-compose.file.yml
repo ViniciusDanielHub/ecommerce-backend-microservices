@@ -1,0 +1,49 @@
+version: '3.8'
+
+services:
+  file-db:
+    image: postgres:15-alpine
+    container_name: file-db
+    environment:
+      POSTGRES_DB: file_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5438:5432"
+    volumes:
+      - file_db_data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  file-service:
+    build:
+      context: ./services/file-service
+      dockerfile: Dockerfile
+    container_name: file-service
+    ports:
+      - "3006:3006"
+    environment:
+      - FILE_DATABASE_URL=postgresql://postgres:postgres@file-db:5432/file_service
+      - JWT_SECRET=your-super-secret-jwt-key
+      - UPLOAD_PROVIDER=LOCAL
+      - UPLOAD_MAX_FILE_SIZE=5242880
+      - UPLOAD_ALLOWED_FORMATS=jpg,jpeg,png,webp,gif,svg
+      - LOCAL_UPLOAD_PATH=uploads/products
+      - LOCAL_UPLOAD_BASE_URL=http://localhost:3006
+      - ADMIN_SERVICE_URL=http://admin-service:3003
+    depends_on:
+      - file-db
+    volumes:
+      - ./services/file-service:/app
+      - /app/node_modules
+      - file_uploads:/app/uploads
+    networks:
+      - microservices-net
+
+volumes:
+  file_db_data:
+  file_uploads:
+
+networks:
+  microservices-net:
+    external: true

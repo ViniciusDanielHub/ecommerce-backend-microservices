@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  user-db:
+    image: postgres:15-alpine
+    container_name: user-db
+    environment:
+      POSTGRES_DB: user_service
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5436:5432"
+    volumes:
+      - user_db_data:/var/lib/postgresql/data
+    networks:
+      - microservices-net
+
+  user-service:
+    build:
+      context: ./services/user-service
+      dockerfile: Dockerfile
+    container_name: user-service
+    ports:
+      - "3002:3002"
+    environment:
+      - USER_DATABASE_URL=postgresql://postgres:postgres@user-db:5432/user_service
+      - JWT_SECRET=your-super-secret-jwt-key
+      - AUTH_SERVICE_URL=http://auth-service:3001
+    depends_on:
+      - user-db
+    volumes:
+      - ./services/user-service:/app
+      - /app/node_modules
+    networks:
+      - microservices-net
+
+volumes:
+  user_db_data:
+
+networks:
+  microservices-net:
+    external: true
