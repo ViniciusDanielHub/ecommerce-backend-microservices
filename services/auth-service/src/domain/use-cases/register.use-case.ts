@@ -1,5 +1,6 @@
 import { Injectable, ConflictException, Inject } from '@nestjs/common';
 import { IUserRepository } from '../../infrastructure/repositories/user.repository';
+import { Role } from '../../shared/types'; // ✅ Import do Role
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
 
@@ -9,9 +10,14 @@ export class RegisterUseCase {
     @Inject('USER_REPOSITORY')
     private readonly userRepository: IUserRepository,
     private readonly configService: ConfigService,
-  ) {}
+  ) { }
 
-  async execute(data: { name: string; email: string; password: string; role?: any }) {
+  async execute(data: {
+    name: string;
+    email: string;
+    password: string;
+    role?: Role
+  }) {
     // Verificar se usuário já existe
     const existingUser = await this.userRepository.findByEmail(data.email);
     if (existingUser) {
@@ -30,7 +36,7 @@ export class RegisterUseCase {
 
     // Remover senha do retorno
     const { password, ...userWithoutPassword } = user;
-    
+
     return {
       message: 'Usuário criado com sucesso',
       user: userWithoutPassword,

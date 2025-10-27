@@ -7,6 +7,10 @@ import { UpdateUserProfileUseCase } from '../../domain/use-cases/update-user-pro
 import { CreateUserProfileUseCase } from '../../domain/use-cases/create-user-profile.use-case';
 import { UserRepository } from '../../infrastructure/repositories/user.repository';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
+import { InternalController } from './internal.controller'; 
+import { UserService } from './user.service'; 
+import { UpdateUserProfileInternalUseCase } from '@/domain/use-cases/update-user-profile-internal.use-case';
+
 
 @Module({
   imports: [
@@ -19,17 +23,21 @@ import { PrismaService } from '../../infrastructure/database/prisma.service';
       inject: [ConfigService],
     }),
   ],
-  controllers: [UserController],
+  controllers: [UserController, InternalController,],
   providers: [
     PrismaService,
     UserRepository,
     GetUserProfileUseCase,
     UpdateUserProfileUseCase,
+    UpdateUserProfileInternalUseCase,
     CreateUserProfileUseCase,
+    UserService, 
   ],
   exports: [
     UserRepository,
     CreateUserProfileUseCase,
+    UpdateUserProfileInternalUseCase,
+    UserService,
   ],
 })
 export class UserModule {}

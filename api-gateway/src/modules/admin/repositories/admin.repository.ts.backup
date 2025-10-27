@@ -1,0 +1,758 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { PrismaService } from '../../../../../services/admin-service/src/infrastructure/database/prisma.service';
+import { Prisma } from '@prisma/client';
+
+// ========================================
+// INTERFACES DE ENTRADA
+// ========================================
+
+export interface LogAdminActionData {
+  adminId: string;
+  action: string;
+  targetId?: string;
+  targetType?: string;
+  description: string;
+  metadata?: Prisma.JsonValue;
+  ip?: string;
+  userAgent?: string;
+}
+
+export interface AdminLogFilters {
+  adminId?: string;
+  action?: string;
+  targetType?: string;
+  startDate?: Date;
+  endDate?: Date;
+  limit?: number;
+  offset?: number;
+  includeAdmin?: boolean;
+}
+
+export interface AdminActionStats {
+  totalActions: number;
+  actionStats: {
+    action: string;
+    count: number;
+  }[];
+  adminStats: {
+    adminId: string;
+    adminName?: string;
+    count: number;
+  }[];
+}
+
+export interface DailyStats {
+  [date: string]: {
+    [action: string]: number;
+  };
+}
+
+export interface PaginationResult<T> {
+  logs: T[];
+  pagination: {
+    total: number;
+    limit: number;
+    offset: number;
+    hasMore: boolean;
+  };
+}
+
+// ========================================
+// TIPOS OTIMIZADOS DO PRISMA
+// ========================================
+
+export type AdminLogBasic = Prisma.AdminLogGetPayload<object>;
+
+export type AdminLogWithAdmin = Prisma.AdminLogGetPayload<{
+  include: {
+    admin: {
+      select: {
+        id: true;
+        name: true;
+        email: true;
+        role: true;
+      };
+    };
+  };
+}>;
+
+export type AdminRecentActivity = Prisma.AdminLogGetPayload<{
+  select: {
+    id: true;
+    action: true;
+    targetType: true;
+    description: true;
+    createdAt: true;
+    metadata: true;
+  };
+}>;
+
+export type SystemConfigType = Prisma.SystemConfigGetPayload<object>;
+
+@Injectable()
+export class AdminRepository {
+  private readonly logger = new Logger(AdminRepository.name);
+
+  constructor(private readonly prisma: PrismaService) {}
+
+  // ========================================
+  // MÉTODOS DE LOG ADMINISTRATIVO
+  // ========================================
+
+  /**
+   * Registrar uma ação administrativa
+   */
+  async logAdminAction(data: LogAdminActionData): Promise<AdminLogBasic | null> {
+    try {
+      const log = await this.prisma.adminLog.create({
+        data: {
+          adminId: data.adminId,
+          action: data.action,
+          targetId: data.targetId,
+          targetType: data.targetType,
+          description: data.description,
+          metadata: data.metadata,
+          ip: data.ip,
+          userAgent: data.userAgent,
+        },
+      });
+
+      this.logger.log(`Log administrativo registrado: ${data.action} por ${data.adminId}`);
+      return log;
+    } catch (error) {
+      this.logger.error('Erro ao registrar log administrativo:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Buscar logs administrativos com filtros avançados
+   */
+  async getAdminLogs(filters: AdminLogFilters = {}): Promise<AdminLogWithAdmin[] | AdminLogBasic[]> {
+    try {
+      const whereClause = this.buildWhereClause(filters);
+      const take = Math.min(filters.limit || 50, 1000);
+      const skip = filters.offset || 0;
+
+      if (filters.includeAdmin) {
+        return await this.prisma.adminLog.findMany({
+          where: whereClause,
+          orderBy: { createdAt: 'desc' },
+          take,
+          skip,
+          include: {
+            admin: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+              },
+            },
+          },
+        });
+      } else {
+        return await this.prisma.adminLog.findMany({
+          where: whereClause,
+          orderBy: { createdAt: 'desc' },
+          take,
+          skip,
+        });
+      }
+    } catch (error) {
+      this.logger.error('Erro ao buscar logs administrativos:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Construir cláusula WHERE para filtros
+   */
+  private buildWhereClause(filters: AdminLogFilters): Prisma.AdminLogWhereInput {
+    const whereClause: Prisma.AdminLogWhereInput = {};
+
+    if (filters.adminId) {
+      whereClause.adminId = filters.adminId;
+    }
+
+    if (filters.action) {
+      whereClause.action = filters.action;
+    }
+
+    if (filters.targetType) {
+      whereClause.targetType = filters.targetType;
+    }
+
+    if (filters.startDate || filters.endDate) {
+      whereClause.createdAt = {};
+      if (filters.startDate) {
+        whereClause.createdAt.gte = filters.startDate;
+      }
+      if (filters.endDate) {
+        whereClause.createdAt.lte = filters.endDate;
+      }
+    }
+
+    return whereClause;
+  }
+
+  /**
+   * Contar logs administrativos
+   */
+  async countAdminLogs(filters: AdminLogFilters = {}): Promise<number> {
+    try {
+      const whereClause = this.buildWhereClause(filters);
+      return await this.prisma.adminLog.count({ where: whereClause });
+    } catch (error) {
+      this.logger.error('Erro ao contar logs administrativos:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Buscar logs por admin específico
+   */
+  async getLogsByAdmin(adminId: string, limit: number = 50): Promise<AdminLogWithAdmin[] | AdminLogBasic[]> {
+    return this.getAdminLogs({ adminId, limit });
+  }
+
+  /**
+   * Buscar logs por ação específica
+   */
+  async getLogsByAction(action: string, limit: number = 50): Promise<AdminLogWithAdmin[] | AdminLogBasic[]> {
+    return this.getAdminLogs({ action, limit });
+  }
+
+  /**
+   * Buscar logs recentes
+   */
+  async getRecentLogs(limit: number = 20): Promise<AdminLogWithAdmin[]> {
+    const result = await this.getAdminLogs({ limit, includeAdmin: true });
+    return result as AdminLogWithAdmin[];
+  }
+
+  /**
+   * Buscar logs por período
+   */
+  async getLogsByDateRange(
+    startDate: Date,
+    endDate: Date,
+    limit: number = 100
+  ): Promise<AdminLogWithAdmin[] | AdminLogBasic[]> {
+    return this.getAdminLogs({ startDate, endDate, limit });
+  }
+
+  /**
+   * Buscar logs por múltiplas ações
+   */
+  async getLogsByActions(actions: string[], limit: number = 50): Promise<AdminLogWithAdmin[]> {
+    try {
+      return await this.prisma.adminLog.findMany({
+        where: {
+          action: {
+            in: actions,
+          },
+        },
+        orderBy: { createdAt: 'desc' },
+        take: Math.min(limit, 1000),
+        include: {
+          admin: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              role: true,
+            },
+          },
+        },
+      });
+    } catch (error) {
+      this.logger.error('Erro ao buscar logs por ações:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Buscar logs com paginação avançada
+   */
+  async getLogsWithPagination(filters: AdminLogFilters = {}): Promise<PaginationResult<AdminLogWithAdmin | AdminLogBasic>> {
+    const whereClause = this.buildWhereClause(filters);
+    const limit = Math.min(filters.limit || 50, 1000);
+    const offset = filters.offset || 0;
+
+    try {
+      const [logs, total] = await Promise.all([
+        this.prisma.adminLog.findMany({
+          where: whereClause,
+          orderBy: { createdAt: 'desc' },
+          take: limit,
+          skip: offset,
+          include: filters.includeAdmin
+            ? {
+                admin: {
+                  select: {
+                    id: true,
+                    name: true,
+                    email: true,
+                    role: true,
+                  },
+                },
+              }
+            : undefined,
+        }),
+        this.prisma.adminLog.count({ where: whereClause }),
+      ]);
+
+      return {
+        logs: logs as (AdminLogWithAdmin | AdminLogBasic)[],
+        pagination: {
+          total,
+          limit,
+          offset,
+          hasMore: offset + limit < total,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Erro ao buscar logs com paginação:', error);
+      return {
+        logs: [],
+        pagination: {
+          total: 0,
+          limit,
+          offset,
+          hasMore: false,
+        },
+      };
+    }
+  }
+
+  // ========================================
+  // CONFIGURAÇÕES DO SISTEMA
+  // ========================================
+
+  /**
+   * Obter configuração do sistema
+   */
+  async getSystemConfig(key: string): Promise<string | null> {
+    try {
+      const config = await this.prisma.systemConfig.findUnique({
+        where: { key },
+      });
+      return config?.value || null;
+    } catch (error) {
+      this.logger.error(`Erro ao buscar configuração ${key}:`, error);
+      return null;
+    }
+  }
+
+  /**
+   * Definir configuração do sistema
+   */
+  async setSystemConfig(key: string, value: string): Promise<SystemConfigType> {
+    try {
+      return await this.prisma.systemConfig.upsert({
+        where: { key },
+        update: { value, updatedAt: new Date() },
+        create: { key, value },
+      });
+    } catch (error) {
+      this.logger.error(`Erro ao definir configuração ${key}:`, error);
+      throw new Error(`Falha ao salvar configuração: ${key}`);
+    }
+  }
+
+  /**
+   * Obter todas as configurações do sistema
+   */
+  async getAllSystemConfigs(): Promise<SystemConfigType[]> {
+    try {
+      return await this.prisma.systemConfig.findMany({
+        orderBy: { key: 'asc' },
+      });
+    } catch (error) {
+      this.logger.error('Erro ao buscar todas as configurações:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Obter múltiplas configurações por chave
+   */
+  async getSystemConfigsByKeys(keys: string[]): Promise<SystemConfigType[]> {
+    try {
+      return await this.prisma.systemConfig.findMany({
+        where: {
+          key: {
+            in: keys,
+          },
+        },
+        orderBy: { key: 'asc' },
+      });
+    } catch (error) {
+      this.logger.error('Erro ao buscar configurações por chaves:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Remover configuração do sistema
+   */
+  async deleteSystemConfig(key: string): Promise<boolean> {
+    try {
+      await this.prisma.systemConfig.delete({
+        where: { key },
+      });
+      return true;
+    } catch (error) {
+      this.logger.error(`Erro ao deletar configuração ${key}:`, error);
+      return false;
+    }
+  }
+
+  // ========================================
+  // ESTATÍSTICAS E RELATÓRIOS
+  // ========================================
+
+  /**
+   * Estatísticas de ações administrativas
+   */
+  async getActionStats(startDate?: Date, endDate?: Date): Promise<AdminActionStats> {
+    const whereClause = this.buildWhereClause({
+      startDate,
+      endDate,
+    });
+
+    try {
+      // Buscar todos os logs filtrados (limitado para performance)
+      const [totalActions, allLogs] = await Promise.all([
+        this.prisma.adminLog.count({ where: whereClause }),
+        this.prisma.adminLog.findMany({
+          where: whereClause,
+          select: {
+            action: true,
+            adminId: true,
+            admin: {
+              select: {
+                name: true,
+              },
+            },
+          },
+          take: 10000, // Limite para não sobrecarregar
+        }),
+      ]);
+
+      // Processar estatísticas em JavaScript
+      const actionMap = new Map<string, number>();
+      const adminMap = new Map<string, { count: number; name?: string }>();
+
+      allLogs.forEach(log => {
+        // Contar ações
+        actionMap.set(log.action, (actionMap.get(log.action) || 0) + 1);
+
+        // Contar por admin
+        const adminData = adminMap.get(log.adminId) || { count: 0, name: log.admin?.name };
+        adminData.count++;
+        if (log.admin?.name) adminData.name = log.admin.name;
+        adminMap.set(log.adminId, adminData);
+      });
+
+      return {
+        totalActions,
+        actionStats: Array.from(actionMap.entries())
+          .map(([action, count]) => ({ action, count }))
+          .sort((a, b) => b.count - a.count),
+        adminStats: Array.from(adminMap.entries())
+          .map(([adminId, data]) => ({
+            adminId,
+            adminName: data.name,
+            count: data.count,
+          }))
+          .sort((a, b) => b.count - a.count),
+      };
+    } catch (error) {
+      this.logger.error('Erro ao gerar estatísticas de ações:', error);
+      return {
+        totalActions: 0,
+        actionStats: [],
+        adminStats: [],
+      };
+    }
+  }
+
+  /**
+   * Ações mais recentes de um admin
+   */
+  async getAdminRecentActivity(adminId: string, limit: number = 10): Promise<AdminRecentActivity[]> {
+    try {
+      return await this.prisma.adminLog.findMany({
+        where: { adminId },
+        orderBy: { createdAt: 'desc' },
+        take: Math.min(limit, 100),
+        select: {
+          id: true,
+          action: true,
+          targetType: true,
+          description: true,
+          createdAt: true,
+          metadata: true,
+        },
+      });
+    } catch (error) {
+      this.logger.error('Erro ao buscar atividade recente do admin:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Estatísticas de ações por dia
+   */
+  async getDailyActionStats(days: number = 30): Promise<DailyStats> {
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+
+    try {
+      const logs = await this.prisma.adminLog.findMany({
+        where: {
+          createdAt: {
+            gte: startDate,
+          },
+        },
+        select: {
+          action: true,
+          createdAt: true,
+        },
+        orderBy: {
+          createdAt: 'asc',
+        },
+      });
+
+      // Agrupar por dia
+      const dailyStats: DailyStats = {};
+
+      logs.forEach(log => {
+        const date = log.createdAt.toISOString().split('T')[0];
+
+        if (!dailyStats[date]) {
+          dailyStats[date] = {};
+        }
+
+        if (!dailyStats[date][log.action]) {
+          dailyStats[date][log.action] = 0;
+        }
+
+        dailyStats[date][log.action]++;
+      });
+
+      return dailyStats;
+    } catch (error) {
+      this.logger.error('Erro ao gerar estatísticas diárias:', error);
+      return {};
+    }
+  }
+
+  /**
+   * Buscar logs por período com agrupamento por ação usando raw SQL
+   */
+  async getActionStatsForPeriod(startDate: Date, endDate: Date): Promise<Array<{ action: string; adminId: string; count: number }>> {
+    try {
+      const stats = await this.prisma.$queryRaw<Array<{ action: string; adminId: string; count: bigint }>>`
+        SELECT action, "adminId", COUNT(*) as count
+        FROM admin_logs
+        WHERE "createdAt" >= ${startDate} 
+          AND "createdAt" <= ${endDate}
+        GROUP BY action, "adminId"
+        ORDER BY action ASC, count DESC
+      `;
+
+      // Converter BigInt para number
+      return stats.map(stat => ({
+        action: stat.action,
+        adminId: stat.adminId,
+        count: Number(stat.count),
+      }));
+    } catch (error) {
+      this.logger.error('Erro ao gerar estatísticas por período:', error);
+      return [];
+    }
+  }
+
+  /**
+   * Limpar logs antigos
+   */
+  async cleanupOldLogs(daysToKeep: number = 365): Promise<number> {
+    try {
+      const cutoffDate = new Date();
+      cutoffDate.setDate(cutoffDate.getDate() - daysToKeep);
+
+      const result = await this.prisma.adminLog.deleteMany({
+        where: {
+          createdAt: {
+            lt: cutoffDate,
+          },
+        },
+      });
+
+      this.logger.log(`Limpeza realizada: ${result.count} logs removidos`);
+      return result.count;
+    } catch (error) {
+      this.logger.error('Erro ao limpar logs antigos:', error);
+      return 0;
+    }
+  }
+
+  /**
+   * Verificar se admin existe
+   */
+  async adminExists(adminId: string): Promise<boolean> {
+    try {
+      const admin = await this.prisma.admin.findUnique({
+        where: { id: adminId },
+        select: { id: true },
+      });
+      return !!admin;
+    } catch (error) {
+      this.logger.error('Erro ao verificar existência do admin:', error);
+      return false;
+    }
+  }
+
+  /**
+   * Estatísticas gerais do sistema
+   */
+  async getSystemStats(): Promise<{
+    totalLogs: number;
+    totalAdmins: number;
+    totalConfigs: number;
+    recentActions: AdminRecentActivity[];
+  }> {
+    try {
+      const [totalLogs, totalAdmins, totalConfigs, recentActions] = await Promise.all([
+        this.prisma.adminLog.count(),
+        this.prisma.admin.count({ where: { isActive: true } }),
+        this.prisma.systemConfig.count(),
+        this.prisma.adminLog.findMany({
+          take: 5,
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            action: true,
+            targetType: true,
+            description: true,
+            createdAt: true,
+            metadata: true,
+          },
+        }),
+      ]);
+
+      return {
+        totalLogs,
+        totalAdmins,
+        totalConfigs,
+        recentActions,
+      };
+    } catch (error) {
+      this.logger.error('Erro ao gerar estatísticas do sistema:', error);
+      return {
+        totalLogs: 0,
+        totalAdmins: 0,
+        totalConfigs: 0,
+        recentActions: [],
+      };
+    }
+  }
+
+  /**
+   * Buscar logs com filtros avançados e contadores
+   */
+  async getAdvancedLogStats(filters: {
+    dateRange?: { start: Date; end: Date };
+    actions?: string[];
+    adminIds?: string[];
+  }): Promise<{
+    logs: AdminLogWithAdmin[];
+    stats: {
+      totalInPeriod: number;
+      topActions: Array<{ action: string; count: number }>;
+      topAdmins: Array<{ adminId: string; name?: string; count: number }>;
+    };
+  }> {
+    try {
+      const whereClause: Prisma.AdminLogWhereInput = {};
+
+      if (filters.dateRange) {
+        whereClause.createdAt = {
+          gte: filters.dateRange.start,
+          lte: filters.dateRange.end,
+        };
+      }
+
+      if (filters.actions?.length) {
+        whereClause.action = { in: filters.actions };
+      }
+
+      if (filters.adminIds?.length) {
+        whereClause.adminId = { in: filters.adminIds };
+      }
+
+      const [logs, totalInPeriod] = await Promise.all([
+        this.prisma.adminLog.findMany({
+          where: whereClause,
+          include: {
+            admin: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+                role: true,
+              },
+            },
+          },
+          orderBy: { createdAt: 'desc' },
+          take: 100,
+        }),
+        this.prisma.adminLog.count({ where: whereClause }),
+      ]);
+
+      // Processar estatísticas
+      const actionCounts = new Map<string, number>();
+      const adminCounts = new Map<string, { name?: string; count: number }>();
+
+      logs.forEach(log => {
+        actionCounts.set(log.action, (actionCounts.get(log.action) || 0) + 1);
+
+        const adminData = adminCounts.get(log.adminId) || { name: log.admin.name, count: 0 };
+        adminData.count++;
+        adminCounts.set(log.adminId, adminData);
+      });
+
+      const topActions = Array.from(actionCounts.entries())
+        .map(([action, count]) => ({ action, count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      const topAdmins = Array.from(adminCounts.entries())
+        .map(([adminId, data]) => ({ adminId, name: data.name, count: data.count }))
+        .sort((a, b) => b.count - a.count)
+        .slice(0, 5);
+
+      return {
+        logs,
+        stats: {
+          totalInPeriod,
+          topActions,
+          topAdmins,
+        },
+      };
+    } catch (error) {
+      this.logger.error('Erro ao buscar estatísticas avançadas:', error);
+      return {
+        logs: [],
+        stats: {
+          totalInPeriod: 0,
+          topActions: [],
+          topAdmins: [],
+        },
+      };
+    }
+  }
+}

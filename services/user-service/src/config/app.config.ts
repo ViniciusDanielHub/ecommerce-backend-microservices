@@ -11,6 +11,7 @@ export interface UserConfig {
   services: {
     authService: string;
   };
+  internalServiceToken: string;
 }
 
 export const userConfig = (): UserConfig => ({
@@ -26,4 +27,5 @@ export const userConfig = (): UserConfig => ({
   services: {
     authService: process.env.AUTH_SERVICE_URL || 'http://auth-service:3001',
   },
+  internalServiceToken: process.env.INTERNAL_SERVICE_TOKEN || 'internal-service-call',
 });

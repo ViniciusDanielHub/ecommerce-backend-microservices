@@ -9,7 +9,7 @@ export class LoginUseCase {
     @Inject('USER_REPOSITORY')
     private readonly userRepository: IUserRepository,
     private readonly jwtService: JwtService,
-  ) {}
+  ) { }
 
   async execute(email: string, password: string) {
     // Buscar usuário
@@ -36,12 +36,7 @@ export class LoginUseCase {
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
-      user: {
-        id: user.id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
+      user: user.toPublic(), 
     };
   }
 }

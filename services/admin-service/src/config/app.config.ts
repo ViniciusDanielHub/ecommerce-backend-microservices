@@ -12,6 +12,7 @@ export interface AdminConfig {
     authService: string;
     userService: string;
   };
+  internalServiceToken: string;
 }
 
 export const adminConfig = (): AdminConfig => ({
@@ -28,4 +29,5 @@ export const adminConfig = (): AdminConfig => ({
     authService: process.env.AUTH_SERVICE_URL || 'http://auth-service:3001',
     userService: process.env.USER_SERVICE_URL || 'http://user-service:3002',
   },
+  internalServiceToken: process.env.INTERNAL_SERVICE_TOKEN || 'internal-service-call',
 });

@@ -20,7 +20,7 @@ export class AdminController {
   constructor(
     private readonly promoteUserUseCase: PromoteUserUseCase,
     private readonly getAllUsersUseCase: GetAllUsersUseCase,
-  ) {}
+  ) { }
 
   @Get('users')
   async getAllUsers(@Request() req: any) {
@@ -34,9 +34,9 @@ export class AdminController {
     @Request() req: any,
     @Param('userId') userId: string,
     @Body() promoteUserDto: PromoteUserDto,
-  ) {
+  ): Promise<{ success: boolean; message: string; data?: any }> {
     const adminId = req.user.sub;
-    const result = await this.promoteUserUseCase.execute(
+    const result: any = await this.promoteUserUseCase.execute(
       adminId,
       userId,
       promoteUserDto.newRole,

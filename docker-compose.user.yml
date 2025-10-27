@@ -26,6 +26,7 @@ services:
       - USER_DATABASE_URL=postgresql://postgres:postgres@user-db:5432/user_service
       - JWT_SECRET=your-super-secret-jwt-key
       - AUTH_SERVICE_URL=http://auth-service:3001
+      - INTERNAL_SERVICE_TOKEN=secure-internal-token-2024
     depends_on:
       - user-db
     volumes:

@@ -19,6 +19,22 @@ enum UploadProvider {
   AWS
 }
 
+// ===== NOVO MODELO ADMIN =====
+model Admin {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String
+  role      String   @default("ADMIN")
+  isActive  Boolean  @default(true)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Relacionamento: um admin pode ter muitos logs
+  logs AdminLog[]
+
+  @@map("admins")
+}
+
 model SystemConfig {
   id        String   @id @default(cuid())
   key       String   @unique
@@ -40,6 +56,16 @@ model AdminLog {
   ip          String?
   userAgent   String?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // Relacionamento: cada log pertence a um admin
+  admin Admin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  // Índices para performance
+  @@index([adminId])
+  @@index([action])
+  @@index([targetType])
+  @@index([createdAt])
 
   @@map("admin_logs")
 }
