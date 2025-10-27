@@ -31,6 +31,13 @@ services:
       - LOCAL_UPLOAD_PATH=uploads/products
       - LOCAL_UPLOAD_BASE_URL=http://localhost:3006
       - ADMIN_SERVICE_URL=http://admin-service:3003
+      - AWS_REGION=us-east-1
+      - AWS_BUCKET_NAME=dummy
+      - AWS_ACCESS_KEY_ID=dummy
+      - AWS_SECRET_ACCESS_KEY=dummy
+      - CLOUDINARY_CLOUD_NAME=dummy
+      - CLOUDINARY_API_KEY=dummy
+      - CLOUDINARY_API_SECRET=dummy
     depends_on:
       - file-db
     volumes:
