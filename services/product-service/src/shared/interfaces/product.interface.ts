@@ -8,6 +8,7 @@ export interface CreateProductDto {
   stock?: number;
   categoryId: string;
   images?: CreateProductImageDto[];
+  fileIds?: string[];
 }
 
 export interface CreateProductImageDto {
@@ -18,3 +19,11 @@ export interface CreateProductImageDto {
 }
 
 export interface UpdateProductDto extends Partial<CreateProductDto> {}
+
+export interface UploadedFileResponse {
+  id: string;
+  url: string;
+  originalName: string;
+  size: number;
+  mimetype: string;
+}

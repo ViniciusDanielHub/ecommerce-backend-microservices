@@ -100,6 +100,38 @@ export class UploadRepository {
     ));
   }
 
+  async findAll(skip: number = 0, take: number = 20): Promise<UploadedFile[]> {
+    const files = await this.prisma.uploadedFile.findMany({
+      where: { deletedAt: null },
+      orderBy: { createdAt: 'desc' },
+      skip,
+      take,
+    });
+
+    return files.map(file => new UploadedFile(
+      file.id,
+      file.originalName,
+      file.filename,
+      file.url,
+      file.mimetype,
+      file.size,
+      file.provider,
+      file.publicId,
+      file.path,
+      file.userId,
+      file.metadata,
+      file.createdAt,
+      file.updatedAt,
+      file.deletedAt,
+    ));
+  }
+
+  async count(): Promise<number> {
+    return this.prisma.uploadedFile.count({
+      where: { deletedAt: null },
+    });
+  }
+
   async softDelete(id: string): Promise<void> {
     await this.prisma.uploadedFile.update({
       where: { id },

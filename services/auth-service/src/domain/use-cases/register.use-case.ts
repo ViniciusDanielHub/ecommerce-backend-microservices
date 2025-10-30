@@ -16,6 +16,7 @@ export class RegisterUseCase {
     name: string;
     email: string;
     password: string;
+    confirmPassword?: string;
     role?: Role
   }) {
     // Verificar se usuário já existe
@@ -28,9 +29,11 @@ export class RegisterUseCase {
     const saltRounds = this.configService.get<number>('bcrypt.saltRounds');
     const hashedPassword = await bcrypt.hash(data.password, saltRounds);
 
+    const { confirmPassword, ...userData } = data;
+
     // Criar usuário
     const user = await this.userRepository.create({
-      ...data,
+      ...userData,
       password: hashedPassword,
     });
 

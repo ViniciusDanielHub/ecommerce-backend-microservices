@@ -3,6 +3,7 @@ import { HttpModule } from '@nestjs/axios';
 import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
 import { PrismaService } from '../../database/prisma.service';
+import { FileServiceClient } from '../../shared/clients/file-service.client';
 
 @Module({
   imports: [
@@ -12,7 +13,11 @@ import { PrismaService } from '../../database/prisma.service';
     }),
   ],
   controllers: [ProductsController],
-  providers: [ProductsService, PrismaService],
+  providers: [
+    ProductsService,
+    PrismaService,
+    FileServiceClient, 
+  ],
   exports: [ProductsService],
 })
-export class ProductsModule {}
+export class ProductsModule { }

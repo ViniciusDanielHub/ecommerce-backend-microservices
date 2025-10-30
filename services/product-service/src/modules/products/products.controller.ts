@@ -7,6 +7,7 @@ import {
   Body,
   Param,
   Query,
+  Headers,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto, UpdateProductDto } from '../../shared/interfaces/product.interface';
@@ -16,10 +17,14 @@ export class ProductsController {
   constructor(private readonly productsService: ProductsService) {}
 
   @Post()
-  async create(@Body() createProductDto: CreateProductDto) {
-    return this.productsService.create(createProductDto);
+  async create(
+    @Body() createProductDto: CreateProductDto,
+    @Headers('authorization') authorization?: string,
+  ) {
+    // Extrai o token do header para passar ao File Service
+    const token = authorization?.replace('Bearer ', '');
+    return this.productsService.create(createProductDto, token);
   }
-
   @Get()
   async findAll(
     @Query('page') page: string = '1',

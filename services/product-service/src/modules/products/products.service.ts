@@ -2,7 +2,12 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { HttpService } from '@nestjs/axios';
 import { ConfigService } from '@nestjs/config';
 import { PrismaService } from '../../database/prisma.service';
-import { CreateProductDto, UpdateProductDto } from '../../shared/interfaces/product.interface';
+import { FileServiceClient } from '../../shared/clients/file-service.client';
+import {
+  CreateProductDto,
+  UpdateProductDto,
+  CreateProductImageDto
+} from '../../shared/interfaces/product.interface';
 import { firstValueFrom } from 'rxjs';
 
 @Injectable()
@@ -11,9 +16,10 @@ export class ProductsService {
     private readonly prisma: PrismaService,
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
-  ) {}
+    private readonly fileServiceClient: FileServiceClient,
+  ) { }
 
-  async create(createProductDto: CreateProductDto) {
+  async create(createProductDto: CreateProductDto, authToken?: string) {
     // Verificar se a categoria existe
     await this.validateCategory(createProductDto.categoryId);
 
@@ -26,14 +32,23 @@ export class ProductsService {
       throw new BadRequestException('Product with this slug already exists');
     }
 
-    const { images, ...productData } = createProductDto;
+    // Processar imagens
+    const processedImages = await this.processProductImages(
+      createProductDto.images,  // ← CORRETO: usar 'images'
+      createProductDto.fileIds,
+      authToken,
+    );
+
+    // Extrair dados do produto (sem images e fileIds para o Prisma)
+    const { images, fileIds, ...productData } = createProductDto;  
 
     const product = await this.prisma.product.create({
       data: {
         ...productData,
-        images: images ? {
-          create: images.map((img, index) => ({
-            ...img,
+        images: processedImages.length > 0 ? {
+          create: processedImages.map((img, index) => ({
+            url: img.url,
+            alt: img.alt || `${productData.name} - Image ${index + 1}`,
             order: img.order ?? index,
             isMain: img.isMain ?? index === 0,
           })),
@@ -50,6 +65,48 @@ export class ProductsService {
       message: 'Product created successfully',
       product,
     };
+  }
+
+  /**
+   * Processa as imagens do produto
+   * Aceita URLs diretas (via images) ou IDs de arquivos do File Service (via fileIds)
+   */
+  private async processProductImages(
+    images?: CreateProductImageDto[],  // ← CORRETO: 'images'
+    fileIds?: string[],
+    authToken?: string,
+  ): Promise<CreateProductImageDto[]> {
+    const processedImages: CreateProductImageDto[] = [];
+
+    // 1. Adicionar imagens com URLs diretas
+    if (images && images.length > 0) {
+      processedImages.push(...images);
+    }
+
+    // 2. Buscar arquivos pelo ID no File Service e converter para URLs
+    if (fileIds && fileIds.length > 0) {
+      try {
+        const files = await this.fileServiceClient.getFilesByIds(fileIds, authToken);
+
+        const fileImages = files.map((file, index) => ({
+          url: file.url,
+          alt: file.originalName,
+          isMain: processedImages.length === 0 && index === 0, // primeira é main se não há outras
+          order: processedImages.length + index,
+        }));
+
+        processedImages.push(...fileImages);
+      } catch (error) {
+        throw new BadRequestException('Error fetching files from File Service');
+      }
+    }
+
+    // Validar se há pelo menos uma imagem
+    if (processedImages.length === 0) {
+      throw new BadRequestException('At least one image is required (images or fileIds)');
+    }
+
+    return processedImages;
   }
 
   async findAll(filters: { page: number; limit: number; categoryId?: string }) {
@@ -119,7 +176,8 @@ export class ProductsService {
       }
     }
 
-    const { images, ...productData } = updateProductDto;
+    // Remover images e fileIds da atualização (por enquanto)
+    const { images, fileIds, ...productData } = updateProductDto;  // ← CORRETO
 
     const product = await this.prisma.product.update({
       where: { id },
@@ -138,7 +196,7 @@ export class ProductsService {
   }
 
   async remove(id: string) {
-    await this.findOne(id); // Verificar se existe
+    await this.findOne(id);
 
     await this.prisma.product.delete({
       where: { id },
@@ -150,23 +208,23 @@ export class ProductsService {
   }
 
   private async validateCategory(categoryId: string) {
-  try {
-    const categoryServiceUrl = this.configService.get('categoryServiceUrl');
-    console.log('Category Service URL:', categoryServiceUrl);
-    console.log('Validating category ID:', categoryId);
-    
-    const response = await firstValueFrom(
-      this.httpService.get(`${categoryServiceUrl}/categories/${categoryId}`),
-    );
-    
-    console.log('Category validation response:', response.status);
-    
-    if (!response.data) {
-      throw new BadRequestException('Category not found');
+    try {
+      const categoryServiceUrl = this.configService.get('categoryServiceUrl');
+      console.log('Category Service URL:', categoryServiceUrl);
+      console.log('Validating category ID:', categoryId);
+
+      const response = await firstValueFrom(
+        this.httpService.get(`${categoryServiceUrl}/categories/${categoryId}`),
+      );
+
+      console.log('Category validation response:', response.status);
+
+      if (!response.data) {
+        throw new BadRequestException('Category not found');
+      }
+    } catch (error) {
+      console.error('Category validation error:', error.message);
+      throw new BadRequestException('Invalid category or category service unavailable');
     }
-  } catch (error) {
-    console.error('Category validation error:', error.message);
-    throw new BadRequestException('Invalid category or category service unavailable');
   }
- }
 }
