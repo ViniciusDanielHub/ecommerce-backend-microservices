@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
-import { Role, User } from '@prisma/client'; // ✅ Importar tipos do Prisma
+import { Role, User } from '@prisma/client'; 
 import { UserEntity } from '../../domain/entities/user.entity';
 import { Role as PrismaRole } from '@prisma/client';
 import { Role as DomainRole } from '../../shared/types';
@@ -19,6 +19,10 @@ export interface IUserRepository {
   findAll(): Promise<UserEntity[]>;
   deleteUser(id: string): Promise<void>;
   updateRole(userId: string, role: Role): Promise<UserEntity>;
+  saveResetToken(userId: string, token: string, expiresAt: Date): Promise<void>;
+  findByResetToken(token: string): Promise<UserEntity | null>;
+  clearResetToken(userId: string): Promise<void>;
+  updatePassword(userId: string, hashedPassword: string): Promise<void>;
 }
 
 @Injectable()
@@ -38,7 +42,6 @@ export class UserRepository implements IUserRepository {
     }
   }
 
-  // ✅ Agora com tipagem correta do Prisma
   private toEntity(userData: User): UserEntity {
     return new UserEntity(
       userData.id,
@@ -107,5 +110,55 @@ export class UserRepository implements IUserRepository {
       data: { role },
     });
     return this.toEntity(userData);
+  }
+  
+
+  async saveResetToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        resetPasswordToken: token,
+        resetPasswordExpires: expiresAt,
+      },
+    });
+  }
+
+  async updatePassword(userId: string, hashedPassword: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        password: hashedPassword,
+        updatedAt: new Date(),
+      },
+    });
+  }
+
+  /**
+   * Buscar usuário por token de reset (se ainda não expirou)
+   */
+  async findByResetToken(token: string): Promise<UserEntity | null> {
+    const userData: User | null = await this.prisma.user.findFirst({
+      where: {
+        resetPasswordToken: token,
+        resetPasswordExpires: {
+          gt: new Date(), // Token ainda válido (maior que agora)
+        },
+      },
+    });
+
+    return userData ? this.toEntity(userData) : null;
+  }
+
+  /**
+   * Limpar token de reset após uso
+   */
+  async clearResetToken(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        resetPasswordToken: null,
+        resetPasswordExpires: null,
+      },
+    });
   }
 }

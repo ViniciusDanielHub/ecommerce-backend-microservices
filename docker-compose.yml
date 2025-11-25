@@ -23,7 +23,32 @@ services:
     depends_on:
       - auth-db
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_service
+      # Database
+      - AUTH_DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_service
+      
+      # JWT
+      - JWT_SECRET=your-super-secret-jwt-key
+      - JWT_EXPIRATION=15m
+      - JWT_REFRESH_EXPIRATION=7d
+      
+      # Bcrypt
+      - BCRYPT_SALT_ROUNDS=12
+      
+      # ✅ ADICIONAR: Configurações de Email
+      - EMAIL_HOST=${EMAIL_HOST:-sandbox.smtp.mailtrap.io}
+      - EMAIL_PORT=${EMAIL_PORT:-2525}
+      - EMAIL_SECURE=${EMAIL_SECURE:-false}
+      - EMAIL_USER=${EMAIL_USER}
+      - EMAIL_PASSWORD=${EMAIL_PASSWORD}
+      - EMAIL_FROM=${EMAIL_FROM:-"MarketPlace contato@marketplace.com"}
+      
+      # ✅ ADICIONAR: URL do Frontend
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
+      
+      # Environment
+      - NODE_ENV=development
+      - SERVICE_PORT=3001
+      - SERVICE_NAME=auth-service
     networks:
       - microservices-net
     volumes:

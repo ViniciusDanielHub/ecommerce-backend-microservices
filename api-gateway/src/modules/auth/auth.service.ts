@@ -47,7 +47,12 @@ export class AuthService {
       const result = await firstValueFrom(
         this.microserviceClient.post('auth', '/auth/logout', {}, headers)
       );
-      return result;
+
+      return {
+        success: true,
+        message: 'Logout realizado com sucesso',
+        data: result,
+      };
     } catch (error) {
       this.handleServiceError(error, 'Erro ao fazer logout');
     }

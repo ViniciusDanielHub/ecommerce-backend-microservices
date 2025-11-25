@@ -14,6 +14,7 @@ coverage/
 
 # Ambiente e segredos
 .env
+.env.production
 .env.*
 !.env.example
 

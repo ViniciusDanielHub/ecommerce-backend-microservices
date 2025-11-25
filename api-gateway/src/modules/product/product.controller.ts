@@ -3,11 +3,15 @@ import {
   All,
   Req,
   Res,
+  Get,
+  UseGuards,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { HttpService } from '@nestjs/axios';
 import { Request, Response } from 'express';
 import { firstValueFrom } from 'rxjs';
+import { JwtAuthGuard } from 'src/guards/jwt-auth.guard';
+import { AdminGuard } from 'src/guards/admin.guard';
 
 @Controller('products')
 export class ProductController {
@@ -20,15 +24,28 @@ export class ProductController {
     this.productServiceUrl = this.configService.get('services.product.url');
   }
 
-  @All('*')
-  async handleAll(@Req() req: Request, @Res() res: Response) {
+  @Get('*')
+  async handleGet(@Req() req: Request, @Res() res: Response) {
     await this.proxyRequest(req, res);
   }
 
-  @All()
-  async handleRoot(@Req() req: Request, @Res() res: Response) {
+  @Get()
+  async handleGetRoot(@Req() req: Request, @Res() res: Response) {
     await this.proxyRequest(req, res);
   }
+
+  // 🔒 POST, PUT, DELETE - Apenas ADMIN
+  @All('*')
+  @UseGuards(JwtAuthGuard, AdminGuard)
+  async handleProtected(@Req() req: Request, @Res() res: Response) {
+    // Bloquear GET (já tratado acima)
+    if (req.method === 'GET') {
+      return res.status(405).json({ message: 'Method not allowed' });
+    }
+
+    await this.proxyRequest(req, res);
+  }
+
 
   private async proxyRequest(req: Request, res: Response) {
     try {
