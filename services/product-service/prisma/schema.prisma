@@ -8,8 +8,106 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ========================================
+// ENUMS
+// ========================================
+
+enum ProductType {
+  PHYSICAL        // Produtos físicos (roupas, eletrônicos, móveis)
+  DIGITAL         // Produtos digitais (ebooks, software, cursos)
+  SERVICE         // Serviços (consultoria, manutenção)
+  SUBSCRIPTION    // Assinaturas (streaming, clubes)
+  BUNDLE          // Pacotes de produtos
+  GIFT_CARD       // Cartões presente
+  BOOKING         // Reservas (hotéis, eventos, ingressos)
+  RENTAL          // Aluguel (carros, equipamentos)
+  FOOD            // Alimentos e bebidas (restaurantes, delivery)
+  VIRTUAL_GOODS   // Itens virtuais (jogos, NFTs)
+}
+
+enum ProductStatus {
+  DRAFT           // Rascunho
+  ACTIVE          // Ativo e visível
+  INACTIVE        // Inativo (não visível)
+  OUT_OF_STOCK    // Sem estoque
+  DISCONTINUED    // Descontinuado
+  ARCHIVED        // Arquivado
+}
+
+enum StockStatus {
+  IN_STOCK
+  LOW_STOCK
+  OUT_OF_STOCK
+  BACKORDER
+  PRE_ORDER
+  DISCONTINUED
+}
+
+enum AttributeType {
+  TEXT
+  NUMBER
+  BOOLEAN
+  DATE
+  SELECT
+  MULTI_SELECT
+  COLOR
+  SIZE
+  JSON
+}
+
+enum PriceType {
+  FIXED           // Preço fixo
+  VARIABLE        // Preço variável (por peso, por exemplo)
+  TIERED          // Preço escalonado (desconto por quantidade)
+  DYNAMIC         // Preço dinâmico (algoritmo)
+}
+
+enum TaxType {
+  PERCENTAGE
+  FIXED
+  EXEMPT
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+  BUY_X_GET_Y
+  FREE_SHIPPING
+}
+
+enum ShippingType {
+  STANDARD
+  EXPRESS
+  SAME_DAY
+  PICKUP
+  DIGITAL         // Sem envio físico
+  CUSTOM
+}
+
+enum UnitOfMeasure {
+  UNIT            // Unidade
+  KG              // Quilograma
+  G               // Grama
+  L               // Litro
+  ML              // Mililitro
+  M               // Metro
+  CM              // Centímetro
+  SQ_M            // Metro quadrado
+  PACK            // Pacote
+  BOX             // Caixa
+  DOZEN           // Dúzia
+  PAIR            // Par
+  SET             // Conjunto
+}
+
+// ========================================
+// PRODUTO PRINCIPAL (100% COMPATÍVEL)
+// ========================================
+
 model Product {
   id          String   @id @default(cuid())
+  
+  // ✅ CAMPOS ORIGINAIS (mantidos exatamente como estavam)
   name        String
   description String?
   slug        String   @unique
@@ -18,13 +116,114 @@ model Product {
   sku         String?  @unique
   stock       Int      @default(0)
   isActive    Boolean  @default(true)
-  categoryId  String
-  images      ProductImage[]
+  categoryId  String   // ✅ MANTIDO - seu código continua funcionando
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  
+  // ✅ CAMPOS ORIGINAIS - Imagens (mantida relação original)
+  images      ProductImage[]
+  
+  // ========================================
+  // ✨ NOVOS CAMPOS OPCIONAIS (não quebram nada)
+  // ========================================
+  
+  // Informações estendidas
+  shortDescription  String?         @db.VarChar(500)
+  barcode           String?         @unique // EAN, UPC, ISBN
+  
+  // Tipo e status (com defaults seguros)
+  type              ProductType     @default(PHYSICAL)
+  status            ProductStatus   @default(ACTIVE)
+  
+  // Precificação avançada
+  priceType         PriceType       @default(FIXED)
+  costPrice         Decimal?        @db.Decimal(10, 2)
+  
+  // Impostos
+  taxable           Boolean         @default(true)
+  taxType           TaxType         @default(PERCENTAGE)
+  taxRate           Decimal?        @db.Decimal(5, 2)
+  
+  // Estoque avançado
+  trackInventory    Boolean         @default(true)
+  stockStatus       StockStatus     @default(IN_STOCK)
+  lowStockThreshold Int?            @default(5)
+  allowBackorder    Boolean         @default(false)
+  
+  // Medidas e peso
+  weight            Decimal?        @db.Decimal(10, 3)
+  weightUnit        UnitOfMeasure?  @default(KG)
+  length            Decimal?        @db.Decimal(10, 2)
+  width             Decimal?        @db.Decimal(10, 2)
+  height            Decimal?        @db.Decimal(10, 2)
+  dimensionUnit     UnitOfMeasure?  @default(CM)
+  
+  // Envio
+  requiresShipping  Boolean         @default(true)
+  shippingType      ShippingType    @default(STANDARD)
+  freeShipping      Boolean         @default(false)
+  
+  // SEO
+  metaTitle         String?         @db.VarChar(160)
+  metaDescription   String?         @db.VarChar(320)
+  metaKeywords      String?
+  
+  // Categorização adicional
+  brandId           String?
+  vendorId          String?
+  
+  // Configurações especiais
+  isDigital         Boolean         @default(false)
+  downloadUrl       String?
+  downloadLimit     Int?
+  
+  isSubscription    Boolean         @default(false)
+  subscriptionPeriod String?
+  
+  isFeatured        Boolean         @default(false)
+  isNewArrival      Boolean         @default(false)
+  isBestseller      Boolean         @default(false)
+  
+  // Limites e restrições
+  minQuantity       Int?            @default(1)
+  maxQuantity       Int?
+  ageRestriction    Int?
+  
+  // Dados flexíveis
+  customFields      Json?
+  specifications    Json?
+  
+  // ========================================
+  // ✨ NOVOS RELACIONAMENTOS
+  // ========================================
+  
+  variants          ProductVariant[]
+  attributes        ProductAttribute[]
+  categories        ProductCategory[]      // Many-to-many (mantém categoryId também)
+  tags              ProductTag[]
+  reviews           ProductReview[]
+  inventory         InventoryLog[]
+  prices            PriceHistory[]
+  discounts         ProductDiscount[]
+  relatedProducts   ProductRelation[]      @relation("ProductRelations")
+  relatedBy         ProductRelation[]      @relation("RelatedProducts")
+  bundles           BundleItem[]
+  
+  // Soft delete
+  deletedAt         DateTime?
 
+  @@index([slug])
+  @@index([sku])
+  @@index([categoryId])
+  @@index([status])
+  @@index([type])
+  @@index([isActive])
   @@map("products")
 }
+
+// ========================================
+// IMAGENS (100% COMPATÍVEL COM ORIGINAL)
+// ========================================
 
 model ProductImage {
   id        String  @id @default(cuid())
@@ -34,6 +233,515 @@ model ProductImage {
   order     Int     @default(0)
   productId String
   product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // ✨ NOVOS CAMPOS OPCIONAIS
+  title     String?
+  width     Int?
+  height    Int?
+  size      Int?
+  type      String  @default("image") // image, video, 360
+  
+  createdAt DateTime @default(now())
 
+  @@index([productId])
   @@map("product_images")
+}
+
+// ========================================
+// ✨ VARIANTES DE PRODUTOS
+// ========================================
+
+model ProductVariant {
+  id              String      @id @default(cuid())
+  productId       String
+  product         Product     @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  // Identificadores
+  sku             String?     @unique
+  barcode         String?     @unique
+  
+  // Opções (ex: {"color": "red", "size": "M"})
+  options         Json
+  
+  // Precificação (sobrescreve produto pai)
+  price           Decimal?    @db.Decimal(10, 2)
+  comparePrice    Decimal?    @db.Decimal(10, 2)
+  costPrice       Decimal?    @db.Decimal(10, 2)
+  
+  // Estoque
+  stock           Int         @default(0)
+  stockStatus     StockStatus @default(OUT_OF_STOCK)
+  
+  // Peso e dimensões
+  weight          Decimal?    @db.Decimal(10, 3)
+  length          Decimal?    @db.Decimal(10, 2)
+  width           Decimal?    @db.Decimal(10, 2)
+  height          Decimal?    @db.Decimal(10, 2)
+  
+  // Imagem específica
+  imageUrl        String?
+  
+  isActive        Boolean     @default(true)
+  
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([productId])
+  @@index([sku])
+  @@map("product_variants")
+}
+
+// ========================================
+// ✨ ATRIBUTOS DINÂMICOS (EAV)
+// ========================================
+
+model Attribute {
+  id              String              @id @default(cuid())
+  name            String              @unique
+  slug            String              @unique
+  type            AttributeType       @default(TEXT)
+  isRequired      Boolean             @default(false)
+  isFilterable    Boolean             @default(true)
+  isSearchable    Boolean             @default(false)
+  options         Json?
+  unit            String?
+  order           Int                 @default(0)
+  
+  productAttributes ProductAttribute[]
+  
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+
+  @@map("attributes")
+}
+
+model ProductAttribute {
+  id          String    @id @default(cuid())
+  productId   String
+  product     Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attributeId String
+  attribute   Attribute @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  
+  value       String    @db.Text
+  
+  createdAt   DateTime  @default(now())
+
+  @@unique([productId, attributeId])
+  @@index([productId])
+  @@index([attributeId])
+  @@map("product_attributes")
+}
+
+// ========================================
+// ✨ CATEGORIAS MANY-TO-MANY (ADICIONAL)
+// ========================================
+
+model ProductCategory {
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  categoryId  String
+  
+  isPrimary   Boolean  @default(false)
+  order       Int      @default(0)
+  
+  createdAt   DateTime @default(now())
+  
+  @@id([productId, categoryId])
+  @@index([productId])
+  @@index([categoryId])
+  @@map("product_categories")
+}
+
+// ========================================
+// ✨ TAGS
+// ========================================
+
+model Tag {
+  id        String       @id @default(cuid())
+  name      String       @unique
+  slug      String       @unique
+  
+  products  ProductTag[]
+  
+  createdAt DateTime     @default(now())
+
+  @@map("tags")
+}
+
+model ProductTag {
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  
+  createdAt DateTime @default(now())
+  
+  @@id([productId, tagId])
+  @@index([productId])
+  @@index([tagId])
+  @@map("product_tags")
+}
+
+// ========================================
+// ✨ MARCAS
+// ========================================
+
+model Brand {
+  id          String   @id @default(cuid())
+  name        String   @unique
+  slug        String   @unique
+  description String?  @db.Text
+  logo        String?
+  website     String?
+  
+  isActive    Boolean  @default(true)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@map("brands")
+}
+
+// ========================================
+// ✨ AVALIAÇÕES
+// ========================================
+
+model ProductReview {
+  id          String   @id @default(cuid())
+  productId   String
+  product     Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  userId      String
+  userName    String
+  userEmail   String?
+  
+  rating      Int      // 1-5
+  title       String?  @db.VarChar(200)
+  comment     String?  @db.Text
+  
+  // Verificação
+  isVerified  Boolean  @default(false)
+  isApproved  Boolean  @default(false)
+  
+  // Interação
+  helpfulCount    Int  @default(0)
+  notHelpfulCount Int  @default(0)
+  
+  // Resposta do vendedor
+  response        String? @db.Text
+  respondedAt     DateTime?
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([productId])
+  @@index([userId])
+  @@index([rating])
+  @@map("product_reviews")
+}
+
+// ========================================
+// ✨ HISTÓRICO DE PREÇOS
+// ========================================
+
+model PriceHistory {
+  id           String   @id @default(cuid())
+  productId    String
+  product      Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  price        Decimal  @db.Decimal(10, 2)
+  comparePrice Decimal? @db.Decimal(10, 2)
+  costPrice    Decimal? @db.Decimal(10, 2)
+  
+  changedBy    String?
+  reason       String?
+  
+  createdAt    DateTime @default(now())
+
+  @@index([productId])
+  @@index([createdAt])
+  @@map("price_history")
+}
+
+// ========================================
+// ✨ INVENTÁRIO E LOGS
+// ========================================
+
+model InventoryLog {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantId     String?
+  
+  type          String   // "purchase", "sale", "adjustment", "return", "damage", "theft"
+  quantity      Int
+  previousStock Int
+  newStock      Int
+  
+  reason        String?
+  reference     String?  // Order ID, Purchase Order, etc
+  notes         String?  @db.Text
+  
+  userId        String?
+  userName      String?
+  
+  createdAt     DateTime @default(now())
+
+  @@index([productId])
+  @@index([type])
+  @@index([createdAt])
+  @@map("inventory_logs")
+}
+
+// ========================================
+// ✨ DESCONTOS E PROMOÇÕES
+// ========================================
+
+model ProductDiscount {
+  id          String        @id @default(cuid())
+  productId   String
+  product     Product       @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  name        String
+  description String?       @db.Text
+  type        DiscountType
+  value       Decimal       @db.Decimal(10, 2)
+  
+  // Condições
+  minQuantity Int?          @default(1)
+  maxQuantity Int?
+  minPurchase Decimal?      @db.Decimal(10, 2)
+  
+  // Período
+  startDate   DateTime
+  endDate     DateTime?
+  
+  // Limites de uso
+  usageLimit  Int?
+  usageCount  Int           @default(0)
+  
+  // Códigos promocionais
+  couponCode  String?       @unique
+  
+  isActive    Boolean       @default(true)
+  
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+
+  @@index([productId])
+  @@index([couponCode])
+  @@index([startDate, endDate])
+  @@map("product_discounts")
+}
+
+// ========================================
+// ✨ PRODUTOS RELACIONADOS
+// ========================================
+
+model ProductRelation {
+  id            String   @id @default(cuid())
+  productId     String
+  product       Product  @relation("ProductRelations", fields: [productId], references: [id], onDelete: Cascade)
+  relatedId     String
+  related       Product  @relation("RelatedProducts", fields: [relatedId], references: [id], onDelete: Cascade)
+  
+  type          String   @default("related") // "related", "upsell", "cross_sell", "alternative", "accessory"
+  order         Int      @default(0)
+  
+  createdAt     DateTime @default(now())
+
+  @@unique([productId, relatedId, type])
+  @@index([productId])
+  @@index([relatedId])
+  @@map("product_relations")
+}
+
+// ========================================
+// ✨ BUNDLES (PACOTES)
+// ========================================
+
+model Bundle {
+  id          String       @id @default(cuid())
+  name        String
+  slug        String       @unique
+  description String?      @db.Text
+  
+  price       Decimal      @db.Decimal(10, 2)
+  discount    Decimal?     @db.Decimal(5, 2)
+  
+  image       String?
+  
+  isActive    Boolean      @default(true)
+  
+  items       BundleItem[]
+  
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  @@map("bundles")
+}
+
+model BundleItem {
+  id        String  @id @default(cuid())
+  bundleId  String
+  bundle    Bundle  @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  quantity  Int     @default(1)
+  order     Int     @default(0)
+  
+  createdAt DateTime @default(now())
+
+  @@index([bundleId])
+  @@index([productId])
+  @@map("bundle_items")
+}
+
+// ========================================
+// ✨ PERGUNTAS E RESPOSTAS
+// ========================================
+
+model ProductQuestion {
+  id          String   @id @default(cuid())
+  productId   String
+  
+  userId      String
+  userName    String
+  userEmail   String?
+  
+  question    String   @db.Text
+  
+  // Resposta
+  answer      String?  @db.Text
+  answeredBy  String?
+  answeredAt  DateTime?
+  
+  isPublic    Boolean  @default(true)
+  isApproved  Boolean  @default(false)
+  
+  helpfulCount Int     @default(0)
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([productId])
+  @@index([userId])
+  @@map("product_questions")
+}
+
+// ========================================
+// ✨ WISHLIST (LISTA DE DESEJOS)
+// ========================================
+
+model Wishlist {
+  id          String   @id @default(cuid())
+  userId      String
+  productId   String
+  
+  notes       String?  @db.Text
+  priority    Int      @default(0) // 0=normal, 1=high
+  
+  createdAt   DateTime @default(now())
+
+  @@unique([userId, productId])
+  @@index([userId])
+  @@index([productId])
+  @@map("wishlists")
+}
+
+// ========================================
+// ✨ COMPARAÇÃO DE PRODUTOS
+// ========================================
+
+model ProductComparison {
+  id          String   @id @default(cuid())
+  userId      String
+  productIds  String[] // Array de IDs
+  
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([userId])
+  @@map("product_comparisons")
+}
+
+// ========================================
+// ✨ NOTIFICAÇÕES DE ESTOQUE
+// ========================================
+
+model StockNotification {
+  id          String   @id @default(cuid())
+  productId   String
+  variantId   String?
+  
+  userId      String
+  userEmail   String
+  
+  notified    Boolean  @default(false)
+  notifiedAt  DateTime?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([productId])
+  @@index([userId])
+  @@index([notified])
+  @@map("stock_notifications")
+}
+
+// ========================================
+// ✨ VISUALIZAÇÕES DE PRODUTOS
+// ========================================
+
+model ProductView {
+  id          String   @id @default(cuid())
+  productId   String
+  
+  userId      String?
+  sessionId   String?
+  
+  ip          String?
+  userAgent   String?
+  referer     String?
+  
+  createdAt   DateTime @default(now())
+
+  @@index([productId])
+  @@index([userId])
+  @@index([createdAt])
+  @@map("product_views")
+}
+
+// ========================================
+// ✨ CONFIGURAÇÕES GLOBAIS
+// ========================================
+
+model ProductSettings {
+  id                    String        @id @default(cuid())
+  
+  // Unidades padrão
+  defaultWeightUnit     UnitOfMeasure @default(KG)
+  defaultDimensionUnit  UnitOfMeasure @default(CM)
+  
+  // Estoque
+  lowStockThreshold     Int           @default(5)
+  trackInventory        Boolean       @default(true)
+  allowBackorder        Boolean       @default(false)
+  
+  // Preços
+  includeTax            Boolean       @default(false)
+  defaultTaxRate        Decimal       @default(0) @db.Decimal(5, 2)
+  
+  // Reviews
+  requireApproval       Boolean       @default(true)
+  allowAnonymous        Boolean       @default(false)
+  minimumRating         Int           @default(1)
+  
+  // Perguntas
+  allowQuestions        Boolean       @default(true)
+  autoApproveQuestions  Boolean       @default(false)
+  
+  updatedAt             DateTime      @updatedAt
+
+  @@map("product_settings")
 }
