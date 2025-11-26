@@ -47,3 +47,13 @@ turbo/
 # Git
 .git-credentials
 .gitconfig.local
+
+# ============================================
+# Environment files (NÃO COMMITAR!)
+# ============================================
+.env
+.env.production
+.env.local
+.env.*.local
+
+# Commitar apenas .env.example

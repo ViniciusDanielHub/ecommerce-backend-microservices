@@ -1,6 +1,9 @@
 version: '3.8'
 
 services:
+  # ========================================
+  # ADMIN SERVICE
+  # ========================================
   admin-db:
     image: postgres:15-alpine
     container_name: admin-db
@@ -23,10 +26,12 @@ services:
     ports:
       - "3003:3003"
     environment:
-      - ADMIN_DATABASE_URL=postgresql://postgres:postgres@admin-db:5432/admin_service
-      - JWT_SECRET=your-super-secret-jwt-key
-      - AUTH_SERVICE_URL=http://auth-service:3001
-      - USER_SERVICE_URL=http://user-service:3002
+      - ADMIN_DATABASE_URL=${ADMIN_DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - USER_SERVICE_URL=${USER_SERVICE_URL}
+      - SERVICE_PORT=3003
+      - SERVICE_NAME=admin-service
     depends_on:
       - admin-db
     volumes:

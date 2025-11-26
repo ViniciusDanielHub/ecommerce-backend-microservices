@@ -1,6 +1,9 @@
 version: '3.8'
 
 services:
+  # ========================================
+  # USER SERVICE
+  # ========================================
   user-db:
     image: postgres:15-alpine
     container_name: user-db
@@ -23,10 +26,12 @@ services:
     ports:
       - "3002:3002"
     environment:
-      - USER_DATABASE_URL=postgresql://postgres:postgres@user-db:5432/user_service
-      - JWT_SECRET=your-super-secret-jwt-key
-      - AUTH_SERVICE_URL=http://auth-service:3001
-      - INTERNAL_SERVICE_TOKEN=secure-internal-token-2024
+      - USER_DATABASE_URL=${USER_DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - AUTH_SERVICE_URL=${AUTH_SERVICE_URL}
+      - INTERNAL_SERVICE_TOKEN=${INTERNAL_SERVICE_TOKEN}
+      - SERVICE_PORT=3002
+      - SERVICE_NAME=user-service
     depends_on:
       - user-db
     volumes:

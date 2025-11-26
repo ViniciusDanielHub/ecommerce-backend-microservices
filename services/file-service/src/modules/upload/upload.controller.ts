@@ -19,7 +19,7 @@ import { UploadFilesUseCase } from '../../domain/use-cases/upload-files.use-case
 import { DeleteFileUseCase } from '../../domain/use-cases/delete-file.use-case';
 import { UploadFileDto, DeleteFileDto } from './dto/upload.dto';
 import { UploadRepository } from '@/infrastructure/repositories/upload.repository';
-import { AdminGuard } from '../../../../../api-gateway/src/guards/admin.guard';
+import { AdminGuard } from '../../shared/guards/admin.guard';
 
 @Controller('upload')
   @UseGuards(JwtAuthGuard, AdminGuard)

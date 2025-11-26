@@ -32,10 +32,20 @@ export class EmailService implements IEmailService {
   }
 
   private createTransporter() {
+    const emailPort = parseInt(this.configService.get<string>('EMAIL_PORT') || '2525', 10);
+    const emailSecure = this.configService.get<string>('EMAIL_SECURE') === 'true';
+
+    console.log('🔧 EMAIL CONFIG:', {
+      host: this.configService.get<string>('EMAIL_HOST'),
+      port: emailPort,
+      secure: emailSecure,
+      user: this.configService.get<string>('EMAIL_USER'),
+    });
+
     this.transporter = nodemailer.createTransport({
       host: this.configService.get<string>('EMAIL_HOST'),
-      port: this.configService.get<number>('EMAIL_PORT') || 587,
-      secure: this.configService.get<boolean>('EMAIL_SECURE') || false,
+      port: emailPort,
+      secure: emailSecure, 
       auth: {
         user: this.configService.get<string>('EMAIL_USER'),
         pass: this.configService.get<string>('EMAIL_PASSWORD'),
@@ -47,7 +57,7 @@ export class EmailService implements IEmailService {
       if (error) {
         this.logger.error('Erro ao conectar email:', error.message);
       } else {
-        this.logger.log('Email pronto');
+        this.logger.log('✅ Email pronto para envio');
       }
     });
   }

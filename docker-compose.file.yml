@@ -1,6 +1,9 @@
 version: '3.8'
 
 services:
+  # ========================================
+  # FILE SERVICE
+  # ========================================
   file-db:
     image: postgres:15-alpine
     container_name: file-db
@@ -23,21 +26,23 @@ services:
     ports:
       - "3006:3006"
     environment:
-      - FILE_DATABASE_URL=postgresql://postgres:postgres@file-db:5432/file_service
-      - JWT_SECRET=your-super-secret-jwt-key
-      - UPLOAD_PROVIDER=LOCAL
-      - UPLOAD_MAX_FILE_SIZE=5242880
-      - UPLOAD_ALLOWED_FORMATS=jpg,jpeg,png,webp,gif,svg
-      - LOCAL_UPLOAD_PATH=uploads/products
-      - LOCAL_UPLOAD_BASE_URL=http://localhost:3006
-      - ADMIN_SERVICE_URL=http://admin-service:3003
-      - AWS_REGION=us-east-1
-      - AWS_BUCKET_NAME=dummy
-      - AWS_ACCESS_KEY_ID=dummy
-      - AWS_SECRET_ACCESS_KEY=dummy
-      - CLOUDINARY_CLOUD_NAME=dummy
-      - CLOUDINARY_API_KEY=dummy
-      - CLOUDINARY_API_SECRET=dummy
+      - FILE_DATABASE_URL=${FILE_DATABASE_URL}
+      - JWT_SECRET=${JWT_SECRET}
+      - UPLOAD_PROVIDER=${UPLOAD_PROVIDER}
+      - UPLOAD_MAX_FILE_SIZE=${UPLOAD_MAX_FILE_SIZE}
+      - UPLOAD_ALLOWED_FORMATS=${UPLOAD_ALLOWED_FORMATS}
+      - LOCAL_UPLOAD_PATH=${LOCAL_UPLOAD_PATH}
+      - LOCAL_UPLOAD_BASE_URL=${LOCAL_UPLOAD_BASE_URL}
+      - ADMIN_SERVICE_URL=${ADMIN_SERVICE_URL}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_BUCKET_NAME=${AWS_BUCKET_NAME}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
+      - CLOUDINARY_API_KEY=${CLOUDINARY_API_KEY}
+      - CLOUDINARY_API_SECRET=${CLOUDINARY_API_SECRET}
+      - SERVICE_PORT=3006
+      - SERVICE_NAME=file-service
     depends_on:
       - file-db
     volumes:

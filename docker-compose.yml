@@ -23,29 +23,18 @@ services:
     depends_on:
       - auth-db
     environment:
-      # Database
       - AUTH_DATABASE_URL=postgresql://postgres:postgres@auth-db:5432/auth_service
-      
-      # JWT
       - JWT_SECRET=your-super-secret-jwt-key
       - JWT_EXPIRATION=15m
       - JWT_REFRESH_EXPIRATION=7d
-      
-      # Bcrypt
       - BCRYPT_SALT_ROUNDS=12
-      
-      # ✅ ADICIONAR: Configurações de Email
       - EMAIL_HOST=${EMAIL_HOST:-sandbox.smtp.mailtrap.io}
       - EMAIL_PORT=${EMAIL_PORT:-2525}
       - EMAIL_SECURE=${EMAIL_SECURE:-false}
       - EMAIL_USER=${EMAIL_USER}
       - EMAIL_PASSWORD=${EMAIL_PASSWORD}
       - EMAIL_FROM=${EMAIL_FROM:-"MarketPlace contato@marketplace.com"}
-      
-      # ✅ ADICIONAR: URL do Frontend
       - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3000}
-      
-      # Environment
       - NODE_ENV=development
       - SERVICE_PORT=3001
       - SERVICE_NAME=auth-service
@@ -85,7 +74,7 @@ services:
     networks:
       - microservices-net
 
-  # Product Service
+  # Product Service ← CORRIGIDO
   product-service:
     build: ./services/product-service
     container_name: product-service
@@ -94,7 +83,8 @@ services:
     depends_on:
       - product-db
     environment:
-      - DATABASE_URL=postgresql://postgres:postgres@product-db:5432/product_service
+      # ✅ ADICIONAR DATABASE_URL (além de PRODUCT_DATABASE_URL)
+      - DATABASE_URL=${PRODUCT_DATABASE_URL:-postgresql://postgres:postgres@product-db:5432/product_service}
       - PORT=3005
       - CATEGORY_SERVICE_URL=http://category-service:3004
     networks:
