@@ -37,28 +37,28 @@ export const gatewayConfig = (): GatewayConfig => ({
   serviceName: process.env.SERVICE_NAME || 'api-gateway',
   services: {
     auth: {
-      url: process.env.AUTH_SERVICE_URL || 'http://localhost:3001',
+      url: process.env.AUTH_SERVICE_URL || 'http://auth-service:3001',
       port: parseInt(process.env.AUTH_SERVICE_PORT, 10) || 3001,
     },
     user: {
-      url: process.env.USER_SERVICE_URL || 'http://localhost:3002',
+      url: process.env.USER_SERVICE_URL || 'http://user-service:3002',
       port: parseInt(process.env.USER_SERVICE_PORT, 10) || 3002,
     },
     product: {
-      url: process.env.PRODUCT_SERVICE_URL || 'http://localhost:3003',
-      port: parseInt(process.env.PRODUCT_SERVICE_PORT, 10) || 3003,
+      url: process.env.PRODUCT_SERVICE_URL || 'http://product-service:3005',
+      port: parseInt(process.env.PRODUCT_SERVICE_PORT, 10) || 3005,
     },
     category: {
-      url: process.env.CATEGORY_SERVICE_URL || 'http://localhost:3004',
+      url: process.env.CATEGORY_SERVICE_URL || 'http://category-service:3004',
       port: parseInt(process.env.CATEGORY_SERVICE_PORT, 10) || 3004,
     },
     file: {
-      url: process.env.FILE_SERVICE_URL || 'http://localhost:3005',
-      port: parseInt(process.env.FILE_SERVICE_PORT, 10) || 3005,
+      url: process.env.FILE_SERVICE_URL || 'http://file-service:3006',
+      port: parseInt(process.env.FILE_SERVICE_PORT, 10) || 3006,
     },
     admin: {
-      url: process.env.ADMIN_SERVICE_URL || 'http://localhost:3006',
-      port: parseInt(process.env.ADMIN_SERVICE_PORT, 10) || 3006,
+      url: process.env.ADMIN_SERVICE_URL || 'http://admin-service:3003',
+      port: parseInt(process.env.ADMIN_SERVICE_PORT, 10) || 3003,
     },
   },
   jwt: {

@@ -80,13 +80,13 @@ services:
     container_name: product-service
     ports:
       - "3005:3005"
+      - "5555:5555"
     depends_on:
       - product-db
     environment:
-      # ✅ ADICIONAR DATABASE_URL (além de PRODUCT_DATABASE_URL)
-      - DATABASE_URL=${PRODUCT_DATABASE_URL:-postgresql://postgres:postgres@product-db:5432/product_service}
-      - PORT=3005
-      - CATEGORY_SERVICE_URL=http://category-service:3004
+      DATABASE_URL: postgresql://postgres:postgres@product-db:5432/product_service
+      PORT: "3005"
+      CATEGORY_SERVICE_URL: "http://category-service:3004"
     networks:
       - microservices-net
     volumes:
