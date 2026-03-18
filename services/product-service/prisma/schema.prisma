@@ -352,6 +352,36 @@ model ProductCategory {
   @@map("product_categories")
 }
 
+model CategoryFieldConfig {
+  id         String   @id @default(cuid())
+  categoryId String?  @unique // null = configuração global/padrão
+  slug       String?  @unique
+  fields     Json     // Array de campos permitidos
+  isActive   Boolean  @default(true)
+  isDefault  Boolean  @default(false) // TRUE para campos base globais
+  priority   Int      @default(0) // Maior = mais prioridade
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([categoryId])
+  @@index([slug])
+  @@index([isDefault])
+  @@map("category_field_configs")
+}
+
+model ExtraFieldContainer {
+  id           String   @id @default(cuid())
+  name         String   @unique // "customFields", "specifications", etc
+  description  String?
+  isActive     Boolean  @default(true)
+  priority     Int      @default(0)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([priority])
+  @@map("extra_field_containers")
+}
 // ========================================
 // ✨ TAGS
 // ========================================

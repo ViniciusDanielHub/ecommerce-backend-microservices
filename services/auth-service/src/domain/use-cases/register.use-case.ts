@@ -3,6 +3,7 @@ import { IUserRepository } from '../../infrastructure/repositories/user.reposito
 import { Role } from '../../shared/types'; // ✅ Import do Role
 import * as bcrypt from 'bcrypt';
 import { ConfigService } from '@nestjs/config';
+import { EmailService } from 'src/infrastructure/email/email.service';
 
 @Injectable()
 export class RegisterUseCase {
@@ -10,6 +11,7 @@ export class RegisterUseCase {
     @Inject('USER_REPOSITORY')
     private readonly userRepository: IUserRepository,
     private readonly configService: ConfigService,
+    private readonly emailService: EmailService,
   ) { }
 
   async execute(data: {
@@ -36,6 +38,14 @@ export class RegisterUseCase {
       ...userData,
       password: hashedPassword,
     });
+
+    try {
+      await this.emailService.sendWelcomeEmail(user.email, user.name);
+      console.log(`✅ Email de boas-vindas enviado para ${user.email}`);
+    } catch (error) {
+      // Não bloqueamos o cadastro se o email falhar
+      console.error('❌ Erro ao enviar email de boas-vindas:', error.message);
+    }
 
     // Remover senha do retorno
     const { password, ...userWithoutPassword } = user;

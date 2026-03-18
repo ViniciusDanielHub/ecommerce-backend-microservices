@@ -9,6 +9,7 @@ import {
   CreateProductImageDto
 } from '../../shared/interfaces/product.interface';
 import { firstValueFrom } from 'rxjs';
+import { ProductResponseService } from 'src/shared/services/product-response.service';
 
 @Injectable()
 export class ProductsService {
@@ -17,6 +18,7 @@ export class ProductsService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly fileServiceClient: FileServiceClient,
+    private readonly productResponseService: ProductResponseService,
   ) { }
 
   async create(createProductDto: CreateProductDto, authToken?: string) {
@@ -34,13 +36,13 @@ export class ProductsService {
 
     // Processar imagens
     const processedImages = await this.processProductImages(
-      createProductDto.images,  // ← CORRETO: usar 'images'
+      createProductDto.images,
       createProductDto.fileIds,
       authToken,
     );
 
     // Extrair dados do produto (sem images e fileIds para o Prisma)
-    const { images, fileIds, ...productData } = createProductDto;  
+    const { images, fileIds, ...productData } = createProductDto;
 
     const product = await this.prisma.product.create({
       data: {
@@ -72,7 +74,7 @@ export class ProductsService {
    * Aceita URLs diretas (via images) ou IDs de arquivos do File Service (via fileIds)
    */
   private async processProductImages(
-    images?: CreateProductImageDto[],  // ← CORRETO: 'images'
+    images?: CreateProductImageDto[],
     fileIds?: string[],
     authToken?: string,
   ): Promise<CreateProductImageDto[]> {
@@ -91,7 +93,7 @@ export class ProductsService {
         const fileImages = files.map((file, index) => ({
           url: file.url,
           alt: file.originalName,
-          isMain: processedImages.length === 0 && index === 0, // primeira é main se não há outras
+          isMain: processedImages.length === 0 && index === 0,
           order: processedImages.length + index,
         }));
 
@@ -131,8 +133,22 @@ export class ProductsService {
       this.prisma.product.count({ where }),
     ]);
 
-    return {
+    // ========================================
+    // ✨ FILTRAR PRODUTOS POR CATEGORIA
+    // ========================================
+
+    // Buscar dados das categorias
+    const categoryIds = [...new Set(products.map(p => p.categoryId))];
+    const categoryDataMap = await this.fetchCategoriesData(categoryIds);
+
+    // Filtrar produtos
+    const filteredProducts = await this.productResponseService.filterListByCategory(
       products,
+      categoryDataMap
+    );
+
+    return {
+      products: filteredProducts,
       pagination: {
         total,
         totalPages: Math.ceil(total / limit),
@@ -156,10 +172,23 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    return product;
+    // ========================================
+    // ✨ FILTRAR PRODUTO POR CATEGORIA
+    // ========================================
+
+    // Buscar dados da categoria
+    const categoryData = await this.fetchCategoryData(product.categoryId);
+
+    // Filtrar produto
+    const filteredProduct = await this.productResponseService.filterByCategory(
+      product,
+      categoryData
+    );
+
+    return filteredProduct;
   }
 
-  async update(id: string, updateProductDto: UpdateProductDto) {
+  async update(id: string, updateProductDto: UpdateProductDto, authToken?: string) {
     const existingProduct = await this.findOne(id);
 
     if (updateProductDto.categoryId) {
@@ -176,12 +205,41 @@ export class ProductsService {
       }
     }
 
-    // Remover images e fileIds da atualização (por enquanto)
-    const { images, fileIds, ...productData } = updateProductDto;  // ← CORRETO
+    // ========================================
+    // ✨ PROCESSAR IMAGENS (SE FORNECIDAS)
+    // ========================================
+    const { images, fileIds, ...productData } = updateProductDto;
+
+    let imageUpdateData = {};
+
+    // Se novas imagens foram fornecidas, processar e substituir
+    if (images || fileIds) {
+      const processedImages = await this.processProductImages(
+        images,
+        fileIds,
+        authToken,
+      );
+
+      // Deletar imagens antigas e criar novas
+      imageUpdateData = {
+        images: {
+          deleteMany: {}, // Remove todas as imagens antigas
+          create: processedImages.map((img, index) => ({
+            url: img.url,
+            alt: img.alt || `${productData.name || existingProduct.name} - Image ${index + 1}`,
+            order: img.order ?? index,
+            isMain: img.isMain ?? index === 0,
+          })),
+        },
+      };
+    }
 
     const product = await this.prisma.product.update({
       where: { id },
-      data: productData,
+      data: {
+        ...productData,
+        ...imageUpdateData,
+      },
       include: {
         images: {
           orderBy: { order: 'asc' },
@@ -205,6 +263,39 @@ export class ProductsService {
     return {
       message: 'Product deleted successfully',
     };
+  }
+
+  /**
+   * ✨ Buscar dados de uma categoria
+   */
+  private async fetchCategoryData(categoryId: string): Promise<any> {
+    try {
+      const categoryServiceUrl = this.configService.get('categoryServiceUrl');
+      const response = await firstValueFrom(
+        this.httpService.get(`${categoryServiceUrl}/categories/${categoryId}`),
+      );
+
+      return response.data;
+    } catch (error) {
+      console.warn(`Could not fetch category ${categoryId}:`, error.message);
+      return { id: categoryId, name: 'Unknown', slug: 'default' };
+    }
+  }
+
+  /**
+   * ✨ Buscar dados de múltiplas categorias
+   */
+  private async fetchCategoriesData(categoryIds: string[]): Promise<Map<string, any>> {
+    const categoryDataMap = new Map<string, any>();
+
+    await Promise.all(
+      categoryIds.map(async categoryId => {
+        const data = await this.fetchCategoryData(categoryId);
+        categoryDataMap.set(categoryId, data);
+      })
+    );
+
+    return categoryDataMap;
   }
 
   private async validateCategory(categoryId: string) {
