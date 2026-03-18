@@ -9,7 +9,7 @@ import {
   CreateProductImageDto
 } from '../../shared/interfaces/product.interface';
 import { firstValueFrom } from 'rxjs';
-import { ProductResponseService } from 'src/shared/services/product-response.service';
+import { ProductResponseService } from '../../shared/services/product-response.service';
 
 @Injectable()
 export class ProductsService {
@@ -22,10 +22,8 @@ export class ProductsService {
   ) { }
 
   async create(createProductDto: CreateProductDto, authToken?: string) {
-    // Verificar se a categoria existe
     await this.validateCategory(createProductDto.categoryId);
 
-    // Verificar se slug já existe
     const existingProduct = await this.prisma.product.findUnique({
       where: { slug: createProductDto.slug },
     });
@@ -34,14 +32,12 @@ export class ProductsService {
       throw new BadRequestException('Product with this slug already exists');
     }
 
-    // Processar imagens
     const processedImages = await this.processProductImages(
       createProductDto.images,
       createProductDto.fileIds,
       authToken,
     );
 
-    // Extrair dados do produto (sem images e fileIds para o Prisma)
     const { images, fileIds, ...productData } = createProductDto;
 
     const product = await this.prisma.product.create({
@@ -70,8 +66,8 @@ export class ProductsService {
   }
 
   /**
-   * Processa as imagens do produto
-   * Aceita URLs diretas (via images) ou IDs de arquivos do File Service (via fileIds)
+   * Processa as imagens do produto.
+   * Aceita URLs diretas (via images) ou IDs de arquivos do File Service (via fileIds).
    */
   private async processProductImages(
     images?: CreateProductImageDto[],
@@ -80,12 +76,10 @@ export class ProductsService {
   ): Promise<CreateProductImageDto[]> {
     const processedImages: CreateProductImageDto[] = [];
 
-    // 1. Adicionar imagens com URLs diretas
     if (images && images.length > 0) {
       processedImages.push(...images);
     }
 
-    // 2. Buscar arquivos pelo ID no File Service e converter para URLs
     if (fileIds && fileIds.length > 0) {
       try {
         const files = await this.fileServiceClient.getFilesByIds(fileIds, authToken);
@@ -103,7 +97,6 @@ export class ProductsService {
       }
     }
 
-    // Validar se há pelo menos uma imagem
     if (processedImages.length === 0) {
       throw new BadRequestException('At least one image is required (images or fileIds)');
     }
@@ -133,15 +126,9 @@ export class ProductsService {
       this.prisma.product.count({ where }),
     ]);
 
-    // ========================================
-    // ✨ FILTRAR PRODUTOS POR CATEGORIA
-    // ========================================
-
-    // Buscar dados das categorias
     const categoryIds = [...new Set(products.map(p => p.categoryId))];
     const categoryDataMap = await this.fetchCategoriesData(categoryIds);
 
-    // Filtrar produtos
     const filteredProducts = await this.productResponseService.filterListByCategory(
       products,
       categoryDataMap
@@ -172,14 +159,8 @@ export class ProductsService {
       throw new NotFoundException('Product not found');
     }
 
-    // ========================================
-    // ✨ FILTRAR PRODUTO POR CATEGORIA
-    // ========================================
-
-    // Buscar dados da categoria
     const categoryData = await this.fetchCategoryData(product.categoryId);
 
-    // Filtrar produto
     const filteredProduct = await this.productResponseService.filterByCategory(
       product,
       categoryData
@@ -188,8 +169,31 @@ export class ProductsService {
     return filteredProduct;
   }
 
+  /**
+   * Busca o produto RAW do banco, sem filtragem de categoria.
+   * Usado internamente para operações de update/delete onde precisamos
+   * de todos os campos originais, não do objeto filtrado.
+   */
+  private async findOneRaw(id: string) {
+    const product = await this.prisma.product.findUnique({
+      where: { id },
+      include: {
+        images: {
+          orderBy: { order: 'asc' },
+        },
+      },
+    });
+
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+
+    return product;
+  }
+
   async update(id: string, updateProductDto: UpdateProductDto, authToken?: string) {
-    const existingProduct = await this.findOne(id);
+    // Busca raw para ter acesso a todos os campos originais sem filtragem
+    const existingProduct = await this.findOneRaw(id);
 
     if (updateProductDto.categoryId) {
       await this.validateCategory(updateProductDto.categoryId);
@@ -205,14 +209,10 @@ export class ProductsService {
       }
     }
 
-    // ========================================
-    // ✨ PROCESSAR IMAGENS (SE FORNECIDAS)
-    // ========================================
     const { images, fileIds, ...productData } = updateProductDto;
 
     let imageUpdateData = {};
 
-    // Se novas imagens foram fornecidas, processar e substituir
     if (images || fileIds) {
       const processedImages = await this.processProductImages(
         images,
@@ -220,10 +220,9 @@ export class ProductsService {
         authToken,
       );
 
-      // Deletar imagens antigas e criar novas
       imageUpdateData = {
         images: {
-          deleteMany: {}, // Remove todas as imagens antigas
+          deleteMany: {},
           create: processedImages.map((img, index) => ({
             url: img.url,
             alt: img.alt || `${productData.name || existingProduct.name} - Image ${index + 1}`,
@@ -254,7 +253,8 @@ export class ProductsService {
   }
 
   async remove(id: string) {
-    await this.findOne(id);
+    // Usa findOneRaw para não precisar fazer a chamada de categoria desnecessariamente
+    await this.findOneRaw(id);
 
     await this.prisma.product.delete({
       where: { id },
@@ -265,9 +265,6 @@ export class ProductsService {
     };
   }
 
-  /**
-   * ✨ Buscar dados de uma categoria
-   */
   private async fetchCategoryData(categoryId: string): Promise<any> {
     try {
       const categoryServiceUrl = this.configService.get('categoryServiceUrl');
@@ -282,9 +279,6 @@ export class ProductsService {
     }
   }
 
-  /**
-   * ✨ Buscar dados de múltiplas categorias
-   */
   private async fetchCategoriesData(categoryIds: string[]): Promise<Map<string, any>> {
     const categoryDataMap = new Map<string, any>();
 

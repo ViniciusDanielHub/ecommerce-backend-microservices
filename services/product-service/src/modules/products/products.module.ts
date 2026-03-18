@@ -4,7 +4,8 @@ import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
 import { PrismaService } from '../../database/prisma.service';
 import { FileServiceClient } from '../../shared/clients/file-service.client';
-import { ProductResponseService } from 'src/shared/services/product-response.service';
+import { ProductResponseService } from '../../shared/services/product-response.service';
+import { CategoryFieldsRepository } from '../../infrastructure/repositories/category-fields.repository';
 
 @Module({
   imports: [
@@ -17,8 +18,9 @@ import { ProductResponseService } from 'src/shared/services/product-response.ser
   providers: [
     ProductsService,
     PrismaService,
-    FileServiceClient, 
+    FileServiceClient,
     ProductResponseService,
+    CategoryFieldsRepository, 
   ],
   exports: [ProductsService],
 })

@@ -1,17 +1,18 @@
 import { Injectable } from '@nestjs/common';
+import { Decimal } from '@prisma/client/runtime/library';
 import { CategoryFieldsRepository } from '../../infrastructure/repositories/category-fields.repository';
 import {
   RawProduct,
   FilteredProduct,
   CategoryData,
   CategoryDataMap,
-  ExtraFields
+  ExtraFields,
 } from '../types/product.types';
 
 @Injectable()
 export class ProductResponseService {
   constructor(
-    private readonly categoryFieldsRepository: CategoryFieldsRepository
+    private readonly categoryFieldsRepository: CategoryFieldsRepository,
   ) { }
 
   /**
@@ -19,20 +20,20 @@ export class ProductResponseService {
    */
   async filterByCategory(
     product: RawProduct,
-    categoryData: CategoryData
+    categoryData: CategoryData,
   ): Promise<FilteredProduct> {
-    // 1. Buscar campos permitidos para esta categoria
+    // 1. Buscar campos permitidos para esta categoria pelo categoryId
     let allowedFields = await this.categoryFieldsRepository.getFieldsByCategoryId(
-      categoryData.id
+      categoryData.id,
     );
 
-    // 2. Se não encontrou configuração específica, tentar por slug
+    // 2. Se só tem campos base, tentar enriquecer pelo slug da categoria
     const baseFieldsCount = this.categoryFieldsRepository.getBaseFieldsCount();
     const hasOnlyBaseFields = allowedFields.length <= baseFieldsCount;
 
     if (hasOnlyBaseFields && categoryData.slug) {
       allowedFields = await this.categoryFieldsRepository.getFieldsBySlug(
-        categoryData.slug
+        categoryData.slug,
       );
     }
 
@@ -42,14 +43,17 @@ export class ProductResponseService {
     // 4. Processar campos extras DINÂMICOS (carregados do banco)
     await this.processExtraFields(product, filtered, allowedFields);
 
-    // 5. Adicionar informações da categoria
-    const result = {
+    // 5. Serializar Decimal → number nos campos de preço
+    this.serializeDecimalFields(filtered);
+
+    // 6. Adicionar informações da categoria
+    const result: FilteredProduct = {
       ...filtered,
       category: {
         id: categoryData.id,
         name: categoryData.name,
-        slug: categoryData.slug
-      }
+        slug: categoryData.slug,
+      },
     } as FilteredProduct;
 
     return result;
@@ -60,33 +64,36 @@ export class ProductResponseService {
    */
   async filterListByCategory(
     products: RawProduct[],
-    categoryDataMap: CategoryDataMap
+    categoryDataMap: CategoryDataMap,
   ): Promise<FilteredProduct[]> {
     return Promise.all(
-      products.map(async (product) => {
+      products.map(async product => {
         const categoryData = categoryDataMap.get(product.categoryId);
 
         if (!categoryData) {
-          // Fallback se categoria não for encontrada
           const defaultCategory: CategoryData = {
             id: product.categoryId,
             name: 'Unknown',
-            slug: 'unknown'
+            slug: 'unknown',
           };
           return this.filterByCategory(product, defaultCategory);
         }
 
         return this.filterByCategory(product, categoryData);
-      })
+      }),
     );
   }
 
+  // ──────────────────────────────────────────────
+  // PRIVATE HELPERS
+  // ──────────────────────────────────────────────
+
   /**
-   * Filtra campos base do produto
+   * Filtra apenas os campos permitidos do produto raw
    */
   private filterProduct(
     product: RawProduct,
-    allowedFields: string[]
+    allowedFields: string[],
   ): Partial<FilteredProduct> {
     const filtered: Record<string, unknown> = {};
 
@@ -100,55 +107,75 @@ export class ProductResponseService {
   }
 
   /**
-   * Processa campos extras DINÂMICOS
-   * Containers são carregados do banco de dados
+   * Processa campos extras DINÂMICOS.
+   * Os containers são carregados do banco, não hardcoded.
    */
   private async processExtraFields(
     product: RawProduct,
     filtered: Partial<FilteredProduct>,
-    allowedFields: string[]
+    allowedFields: string[],
   ): Promise<void> {
-    // Buscar containers ATIVOS do banco (não hardcoded!)
-    const extraFieldContainers = await this.categoryFieldsRepository.getExtraContainers();
+    const extraFieldContainers =
+      await this.categoryFieldsRepository.getExtraContainers();
 
-    if (extraFieldContainers.length === 0) {
-      return;
-    }
+    if (extraFieldContainers.length === 0) return;
 
-    // Processar cada container encontrado
     extraFieldContainers.forEach(containerName => {
       const extraData = product[containerName];
 
       if (!extraData) return;
 
-      // Se for objeto, filtrar chaves
       if (this.isPlainObject(extraData)) {
         const filteredExtra: ExtraFields = {};
 
         Object.keys(extraData).forEach(key => {
-          // Apenas incluir se o campo estiver na lista de permitidos
           if (allowedFields.includes(key)) {
             filteredExtra[key] = (extraData as Record<string, unknown>)[key];
           }
         });
 
-        // Só adicionar se tiver algum campo
         if (Object.keys(filteredExtra).length > 0) {
-          filtered[containerName] = filteredExtra;
+          (filtered as Record<string, unknown>)[containerName] = filteredExtra;
         }
       }
     });
   }
 
   /**
-   * Verifica se é um objeto plain (não array, não null, não Date, etc)
+   * Converte todos os campos Decimal do Prisma para number JS.
+   * Necessário pois o Prisma retorna Decimal para colunas DECIMAL/NUMERIC,
+   * o que é incompatível com a interface FilteredProduct (number).
+   */
+  private serializeDecimalFields(filtered: Partial<FilteredProduct>): void {
+    const decimalFields: Array<keyof FilteredProduct> = [
+      'price',
+      'comparePrice',
+      'costPrice',
+      'taxRate',
+      'weight',
+      'length',
+      'width',
+      'height',
+    ];
+
+    decimalFields.forEach(field => {
+      const value = (filtered as Record<string, unknown>)[field as string];
+      if (value instanceof Decimal) {
+        (filtered as Record<string, unknown>)[field as string] = value.toNumber();
+      }
+    });
+  }
+
+  /**
+   * Verifica se o valor é um objeto plain (não array, não null, não Date, não Decimal)
    */
   private isPlainObject(value: unknown): value is Record<string, unknown> {
     return (
       typeof value === 'object' &&
       value !== null &&
       !Array.isArray(value) &&
-      !(value instanceof Date)
+      !(value instanceof Date) &&
+      !(value instanceof Decimal)
     );
   }
 }

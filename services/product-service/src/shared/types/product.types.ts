@@ -1,3 +1,6 @@
+import { Decimal } from '@prisma/client/runtime/library';
+import { JsonValue } from '@prisma/client/runtime/library';
+
 export interface CategoryData {
   id: string;
   name: string;
@@ -15,6 +18,13 @@ export interface ProductImage {
   alt?: string;
   isMain: boolean;
   order: number;
+  title?: string;
+  width?: number;
+  height?: number;
+  size?: number;
+  type?: string;
+  productId?: string;
+  createdAt?: Date;
 }
 
 /**
@@ -25,48 +35,51 @@ export interface ExtraFields {
 }
 
 /**
- * Produto completo do banco (antes da filtragem)
+ * Produto completo do banco (antes da filtragem).
+ * Usa Decimal para os campos numéricos que o Prisma retorna como Decimal,
+ * evitando erros de type mismatch.
  */
 export interface RawProduct {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   slug: string;
-  price: number;
-  comparePrice?: number;
-  sku?: string;
+  price: Decimal | number;
+  comparePrice?: Decimal | number | null;
+  sku?: string | null;
   stock: number;
   isActive: boolean;
   categoryId: string;
-  status?: string;
+  status?: string | null;
   images?: ProductImage[];
   createdAt: Date;
   updatedAt: Date;
 
-  // Campos extras dinâmicos
-  customFields?: ExtraFields;
-  specifications?: ExtraFields;
-  attributes?: ExtraFields;
+  // Campos Json do Prisma — JsonValue é o tipo real que o Prisma retorna
+  customFields?: JsonValue | null;
+  specifications?: JsonValue | null;
+  attributes?: JsonValue | null;
 
   // Outros campos dinâmicos possíveis
   [key: string]: unknown;
 }
 
 /**
- * Produto filtrado (após aplicar regras da categoria)
+ * Produto filtrado (após aplicar regras da categoria).
+ * price é serializado como number no response final.
  */
 export interface FilteredProduct {
   id: string;
   name: string;
-  description?: string;
+  description?: string | null;
   slug: string;
   price: number;
-  comparePrice?: number;
-  sku?: string;
+  comparePrice?: number | null;
+  sku?: string | null;
   stock: number;
   isActive: boolean;
   categoryId: string;
-  status?: string;
+  status?: string | null;
   images?: ProductImage[];
   createdAt: Date;
   updatedAt: Date;
@@ -79,9 +92,9 @@ export interface FilteredProduct {
   };
 
   // Campos extras filtrados
-  customFields?: ExtraFields;
-  specifications?: ExtraFields;
-  attributes?: ExtraFields;
+  customFields?: ExtraFields | null;
+  specifications?: ExtraFields | null;
+  attributes?: ExtraFields | null;
 
   // Outros campos permitidos
   [key: string]: unknown;
