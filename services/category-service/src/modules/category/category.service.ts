@@ -1,11 +1,14 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
+const MAX_CATEGORIES = 50;
+const MAX_SUBCATEGORIES = 50;
+
 @Injectable()
 export class CategoryService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(private readonly prisma: PrismaService) { }
 
   async create(createCategoryDto: CreateCategoryDto) {
     // Verificar se slug já existe
@@ -17,14 +20,33 @@ export class CategoryService {
       throw new ConflictException('Slug já está em uso');
     }
 
-    // Verificar se parent existe (se fornecido)
     if (createCategoryDto.parentId) {
+      // Verificar se parent existe
       const parentCategory = await this.prisma.category.findUnique({
         where: { id: createCategoryDto.parentId },
+        include: { children: true },
       });
 
       if (!parentCategory) {
         throw new NotFoundException('Categoria pai não encontrada');
+      }
+
+      // Limite de subcategorias por categoria pai
+      if (parentCategory.children.length >= MAX_SUBCATEGORIES) {
+        throw new BadRequestException(
+          `Limite de ${MAX_SUBCATEGORIES} subcategorias por categoria atingido`,
+        );
+      }
+    } else {
+      // Limite de categorias raiz
+      const rootCount = await this.prisma.category.count({
+        where: { parentId: null },
+      });
+
+      if (rootCount >= MAX_CATEGORIES) {
+        throw new BadRequestException(
+          `Limite de ${MAX_CATEGORIES} categorias atingido`,
+        );
       }
     }
 
@@ -46,15 +68,20 @@ export class CategoryService {
   }
 
   async findAll(page = 1, limit = 10) {
-    const skip = (page - 1) * limit;
+    // Limitar o máximo de itens retornados por página
+    const safeLimi = Math.min(limit, MAX_CATEGORIES);
+    const skip = (page - 1) * safeLimi;
 
     const [categories, total] = await Promise.all([
       this.prisma.category.findMany({
         skip,
-        take: limit,
+        take: safeLimi,
         include: {
           parent: true,
-          children: true,
+          // Limitar subcategorias retornadas
+          children: {
+            take: MAX_SUBCATEGORIES,
+          },
         },
         orderBy: { name: 'asc' },
       }),
@@ -65,9 +92,9 @@ export class CategoryService {
       categories,
       pagination: {
         total,
-        totalPages: Math.ceil(total / limit),
+        totalPages: Math.ceil(total / safeLimi),
         currentPage: page,
-        limit,
+        limit: safeLimi,
       },
     };
   }
@@ -75,10 +102,14 @@ export class CategoryService {
   async getTree() {
     const categories = await this.prisma.category.findMany({
       where: { parentId: null },
+      take: MAX_CATEGORIES, // Limite de categorias raiz
       include: {
         children: {
+          take: MAX_SUBCATEGORIES, // Limite de subcategorias nível 1
           include: {
-            children: true,
+            children: {
+              take: MAX_SUBCATEGORIES, // Limite de subcategorias nível 2
+            },
           },
         },
       },
@@ -96,7 +127,9 @@ export class CategoryService {
       where: { id },
       include: {
         parent: true,
-        children: true,
+        children: {
+          take: MAX_SUBCATEGORIES,
+        },
       },
     });
 
@@ -127,12 +160,35 @@ export class CategoryService {
       }
     }
 
+      // Se está mudando o parentId, verificar limite de subcategorias do novo pai
+      if (
+        updateCategoryDto.parentId &&
+        updateCategoryDto.parentId !== category.parentId
+      ) {
+        const newParent = await this.prisma.category.findUnique({
+          where: { id: updateCategoryDto.parentId },
+          include: { children: true },
+        });
+
+        if (!newParent) {
+          throw new NotFoundException('Categoria pai não encontrada');
+        }
+
+        if (newParent.children.length >= MAX_SUBCATEGORIES) {
+          throw new BadRequestException(
+            `Limite de ${MAX_SUBCATEGORIES} subcategorias por categoria atingido`,
+          );
+        }
+      }
+
     const updatedCategory = await this.prisma.category.update({
       where: { id },
       data: updateCategoryDto,
       include: {
         parent: true,
-        children: true,
+        children: {
+          take: MAX_SUBCATEGORIES,
+        },
       },
     });
 

@@ -1,4 +1,4 @@
-import { Injectable, OnModuleInit } from '@nestjs/common';
+import { BadRequestException, Injectable, OnModuleInit } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 
 export interface CategoryFieldConfigData {
@@ -12,6 +12,9 @@ export interface FieldConfiguration {
   extraFields: string[];
   allFields: string[];
 }
+
+const MAX_FIELDS = 50;        // Limite de campos permitidos por categoria
+const MAX_SUBFIELDS = 50;   
 
 @Injectable()
 export class CategoryFieldsRepository implements OnModuleInit {
@@ -175,6 +178,24 @@ export class CategoryFieldsRepository implements OnModuleInit {
       );
     }
 
+    // Validar limite de subcampos por container
+    for (const [container, fields] of Object.entries(data.fields)) {
+      if (fields.length > MAX_SUBFIELDS) {
+        throw new BadRequestException(
+          `Container "${container}" excede o limite de ${MAX_SUBFIELDS} subcampos. ` +
+          `Enviados: ${fields.length}`,
+        );
+      }
+    }
+
+    // Validar limite total de campos
+    const totalFields = Object.values(data.fields).flat().length;
+    if (totalFields > MAX_FIELDS) {
+      throw new BadRequestException(
+        `Total de campos (${totalFields}) excede o limite de ${MAX_FIELDS} por categoria`,
+      );
+    }
+
     await this.prisma.categoryFieldConfig.upsert({
       where: { categoryId: data.categoryId },
       update: {
@@ -196,6 +217,12 @@ export class CategoryFieldsRepository implements OnModuleInit {
   }
 
   async updateBaseFields(fields: string[]): Promise<void> {
+    if (fields.length > MAX_FIELDS) {
+      throw new BadRequestException(
+        `Total de campos base (${fields.length}) excede o limite de ${MAX_FIELDS}`,
+      );
+    }
+
     const baseConfig = await this.prisma.categoryFieldConfig.findFirst({
       where: { isDefault: true },
     });
@@ -218,7 +245,6 @@ export class CategoryFieldsRepository implements OnModuleInit {
       });
     }
 
-    // Invalida cache imediatamente
     await this.loadBaseFields();
   }
 
@@ -252,6 +278,7 @@ export class CategoryFieldsRepository implements OnModuleInit {
     const configs = await this.prisma.categoryFieldConfig.findMany({
       where: { isActive: true, isDefault: false },
       orderBy: [{ priority: 'desc' }, { createdAt: 'desc' }],
+      take: MAX_FIELDS,
     });
 
     return configs.map(config => ({
