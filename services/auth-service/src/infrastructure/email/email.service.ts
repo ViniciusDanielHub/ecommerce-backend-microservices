@@ -15,6 +15,7 @@ import {
   getPasswordChangedTemplate,
   getPasswordChangedTextTemplate,
 } from './templates/password-changed.template';
+import { getEmailVerificationTemplate, getEmailVerificationTextTemplate } from './templates/email-verification.template';
 
 @Injectable()
 export class EmailService implements IEmailService {
@@ -117,6 +118,21 @@ export class EmailService implements IEmailService {
         'Senha Alterada'
       ),
       text: getPasswordChangedTextTemplate(name),
+    });
+  }
+
+  async sendEmailVerificationEmail(email: string, name: string, token: string): Promise<void> {
+    const verificationLink = `${this.frontendUrl}/verify-email?token=${token}`;
+
+    await this.sendEmail({
+      to: email,
+      subject: 'Confirme seu email - MarketPlace',
+      html: getEmailLayout(
+        getEmailVerificationTemplate(name, verificationLink),
+        '#2196F3',
+        'Confirme seu Email'
+      ),
+      text: getEmailVerificationTextTemplate(name, verificationLink),
     });
   }
 }

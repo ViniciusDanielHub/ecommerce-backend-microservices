@@ -25,6 +25,8 @@ model User {
   resetPasswordExpires     DateTime?
   lastLoginAt              DateTime?
   emailVerifiedAt          DateTime?
+  emailVerificationToken   String?
+  emailVerificationExpires DateTime?
   avatar                   String?
   phone                    String?
   address                  String?

@@ -19,6 +19,17 @@ export class AuthService {
     }
   }
 
+  async verifyEmail(token: string) {
+    try {
+      const result = await firstValueFrom(
+        this.microserviceClient.get('auth', `/auth/verify-email?token=${token}`)
+      );
+      return result;
+    } catch (error) {
+      this.handleServiceError(error, 'Erro ao verificar email');
+    }
+  }
+
   async login(loginData: any) {
     try {
       const result = await firstValueFrom(

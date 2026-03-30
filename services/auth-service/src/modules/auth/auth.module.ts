@@ -11,6 +11,7 @@ import { ForgotPasswordUseCase } from 'src/domain/use-cases/forgot-password.use-
 import { ResetPasswordUseCase } from 'src/domain/use-cases/reset-password.use-case';
 import { JwtAuthGuard } from 'src/shared/guards/jwt-auth.guard';
 import { EmailService } from 'src/infrastructure/email/email.service';
+import { VerifyEmailUseCase } from 'src/domain/use-cases/verify-email.use-case';
 
 @Module({
   imports: [
@@ -33,6 +34,7 @@ import { EmailService } from 'src/infrastructure/email/email.service';
     ResetPasswordUseCase,
     JwtAuthGuard,
     EmailService,
+    VerifyEmailUseCase,
     {
       provide: 'USER_REPOSITORY',
       useClass: UserRepository,

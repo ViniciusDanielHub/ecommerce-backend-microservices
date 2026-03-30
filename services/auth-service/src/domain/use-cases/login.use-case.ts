@@ -24,6 +24,10 @@ export class LoginUseCase {
       throw new UnauthorizedException('Credenciais inválidas');
     }
 
+    if (!user.emailVerifiedAt) {
+      throw new UnauthorizedException('Confirme seu email antes de fazer login. Verifique sua caixa de entrada.');
+    }
+
     // Gerar tokens
     const payload = { sub: user.id, email: user.email, role: user.role };
     const accessToken = this.jwtService.sign(payload, { expiresIn: '15m' });

@@ -1,4 +1,4 @@
-import { Controller, Post, Body, UseGuards, Request } from '@nestjs/common';
+import { Controller, Post, Body, UseGuards, Request, Get, Query } from '@nestjs/common';
 import { RegisterUseCase } from '../../domain/use-cases/register.use-case';
 import { LoginUseCase } from '../../domain/use-cases/login.use-case';
 import { LogoutUseCase } from 'src/domain/use-cases/logout.use-case'; 
@@ -11,6 +11,7 @@ import { ForgotPasswordUseCase } from 'src/domain/use-cases/forgot-password.use-
 import { ResetPasswordUseCase } from 'src/domain/use-cases/reset-password.use-case';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
+import { VerifyEmailUseCase } from 'src/domain/use-cases/verify-email.use-case';
 
 @Controller('auth')
 export class AuthController {
@@ -20,6 +21,7 @@ export class AuthController {
     private readonly logoutUseCase: LogoutUseCase,
     private readonly forgotPasswordUseCase: ForgotPasswordUseCase,   
     private readonly resetPasswordUseCase: ResetPasswordUseCase, 
+    private readonly verifyEmailUseCase: VerifyEmailUseCase,
   ) { }
 
   // ✅ Método privado para converter role
@@ -71,5 +73,15 @@ export class AuthController {
       resetPasswordDto.token,
       resetPasswordDto.newPassword,
     );
+  }
+
+  @Post('verify-email')
+  async verifyEmail(@Body() body: { token: string }) {
+    return this.verifyEmailUseCase.execute(body.token);
+  }
+
+  @Get('verify-email')
+  async verifyEmailGet(@Query('token') token: string) {
+    return this.verifyEmailUseCase.execute(token);
   }
 }

@@ -23,6 +23,9 @@ export interface IUserRepository {
   findByResetToken(token: string): Promise<UserEntity | null>;
   clearResetToken(userId: string): Promise<void>;
   updatePassword(userId: string, hashedPassword: string): Promise<void>;
+  saveEmailVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void>;
+  findByEmailVerificationToken(token: string): Promise<UserEntity | null>;
+  markEmailAsVerified(userId: string): Promise<void>;
 }
 
 @Injectable()
@@ -158,6 +161,39 @@ export class UserRepository implements IUserRepository {
       data: {
         resetPasswordToken: null,
         resetPasswordExpires: null,
+      },
+    });
+  }
+
+  async saveEmailVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailVerificationToken: token,
+        emailVerificationExpires: expiresAt,
+      },
+    });
+  }
+
+  async findByEmailVerificationToken(token: string): Promise<UserEntity | null> {
+    const userData = await this.prisma.user.findFirst({
+      where: {
+        emailVerificationToken: token,
+        emailVerificationExpires: {
+          gt: new Date(),
+        },
+      },
+    });
+    return userData ? this.toEntity(userData) : null;
+  }
+
+  async markEmailAsVerified(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        emailVerifiedAt: new Date(),
+        emailVerificationToken: null,
+        emailVerificationExpires: null,
       },
     });
   }
