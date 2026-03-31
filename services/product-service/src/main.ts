@@ -1,12 +1,19 @@
 import { NestFactory } from '@nestjs/core';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
+import {
+  FastifyAdapter,
+  NestFastifyApplication,
+} from '@nestjs/platform-fastify';
 import { AppModule } from './app.module';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestFastifyApplication>(
+    AppModule,
+    new FastifyAdapter({ logger: false }),
+  );
 
-  // Configurar validação global
+  // Validação global
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -15,20 +22,19 @@ async function bootstrap() {
     }),
   );
 
-  // Configurar CORS
-  app.enableCors({
+  // CORS
+  await app.register(require('@fastify/cors'), {
     origin: true,
     credentials: true,
   });
 
-  // Obter configurações
+  // Configurações
   const configService = app.get(ConfigService);
   const port = configService.get<number>('port');
   const serviceName = configService.get<string>('serviceName');
 
-  await app.listen(port);
-  console.log(`🚀 ${serviceName} running on port ${port}`);
-  console.log(`�� Health check: http://localhost:${port}/products`);
+  await app.listen(port, '0.0.0.0');
+  console.log(`🚀 ${serviceName} (Fastify) running on port ${port}`);
 }
 
 bootstrap();
