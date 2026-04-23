@@ -1,11 +1,13 @@
-import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus, Body, Post } from '@nestjs/common';
 import { MicroserviceClientService } from '../../shared/services/microservice-client.service';
 import { firstValueFrom } from 'rxjs';
+import { SendPhoneVerificationDto, VerifyPhoneDto } from './dto/phone-verification.dto';
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly microserviceClient: MicroserviceClientService,
+    private readonly authService: AuthService
   ) {}
 
   async register(registerData: any) {
@@ -115,5 +117,26 @@ export class AuthService {
       },
       status,
     );
+  }
+
+  @Post('send-phone-verification')
+  async sendPhoneVerification(@Body() data: SendPhoneVerificationDto) {
+    return this.authService.sendPhoneVerification(data);
+  }
+
+  @Post('verify-phone')
+  async verifyPhone(@Body() data: VerifyPhoneDto) {
+    return this.authService.verifyPhone(data);
+  }
+
+  async resendPhoneVerification(data: SendPhoneVerificationDto) {
+    try {
+      const result = await firstValueFrom(
+        this.microserviceClient.post('auth', '/auth/resend-phone-verification', data)
+      );
+      return result;
+    } catch (error) {
+      this.handleServiceError(error, 'Erro ao reenviar verificação de telefone');
+    }
   }
 }

@@ -1,13 +1,19 @@
-import { Controller, Post, Body, Headers, Req, UseGuards, Get, Query } from '@nestjs/common';
+import { Controller, Post, Body, Headers, UseGuards, Get, Query } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { JwtAuthGuard } from '../../guards/jwt-auth.guard';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import { SendPhoneVerificationDto, VerifyPhoneDto } from './dto/phone-verification.dto';
+import { ForgotPasswordDto } from './dto/forgot-passsword.dto'; 
 
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly authService: AuthService) {}
+  constructor(private readonly authService: AuthService) { }
 
   @Post('register')
-  async register(@Body() registerData: any) {
+  async register(@Body() registerData: RegisterDto) {
     return this.authService.register(registerData);
   }
 
@@ -17,13 +23,13 @@ export class AuthController {
   }
 
   @Post('login')
-  async login(@Body() loginData: any) {
+  async login(@Body() loginData: LoginDto) {
     return this.authService.login(loginData);
   }
 
   @Post('refresh')
   @UseGuards(JwtAuthGuard)
-  async refreshToken(@Body() refreshData: any) {
+  async refreshToken(@Body() refreshData: RefreshTokenDto) {
     return this.authService.refreshToken(refreshData);
   }
 
@@ -34,12 +40,27 @@ export class AuthController {
   }
 
   @Post('forgot-password')
-  async forgotPassword(@Body() data: { email: string }) {
+  async forgotPassword(@Body() data: ForgotPasswordDto) {
     return this.authService.forgotPassword(data.email);
   }
 
   @Post('reset-password')
-  async resetPassword(@Body() resetData: any) {
+  async resetPassword(@Body() resetData: ResetPasswordDto) {
     return this.authService.resetPassword(resetData);
+  }
+
+  @Post('send-phone-verification')
+  async sendPhoneVerification(@Body() data: SendPhoneVerificationDto) {
+    return this.authService.sendPhoneVerification(data);
+  }
+
+  @Post('verify-phone')
+  async verifyPhone(@Body() data: VerifyPhoneDto) {
+    return this.authService.verifyPhone(data);
+  }
+
+  @Post('resend-phone-verification')
+  async resendPhoneVerification(@Body() data: SendPhoneVerificationDto) {
+    return this.authService.resendPhoneVerification(data);
   }
 }
