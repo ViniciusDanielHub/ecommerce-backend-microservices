@@ -26,7 +26,16 @@ export interface IUserRepository {
   saveEmailVerificationToken(userId: string, token: string, expiresAt: Date): Promise<void>;
   findByEmailVerificationToken(token: string): Promise<UserEntity | null>;
   markEmailAsVerified(userId: string): Promise<void>;
+  savePhoneVerification(
+    userId: string,
+    phone: string,
+    hashedCode: string,
+    expiresAt: Date,
+    channel: string,
+  ): Promise<void>;
+  markPhoneAsVerified(userId: string): Promise<void>;
 }
+
 
 @Injectable()
 export class UserRepository implements IUserRepository {
@@ -197,4 +206,35 @@ export class UserRepository implements IUserRepository {
       },
     });
   }
+  async savePhoneVerification(
+    userId: string,
+    phone: string,
+    hashedCode: string,
+    expiresAt: Date,
+    channel: string,
+  ): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        phone,
+        phoneVerificationCode: hashedCode,
+        phoneVerificationExpires: expiresAt,
+        phoneVerificationChannel: channel,
+        phoneVerifiedAt: null, // reset caso reenvio
+      },
+    });
+  }
+
+  async markPhoneAsVerified(userId: string): Promise<void> {
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: {
+        phoneVerifiedAt: new Date(),
+        phoneVerificationCode: null,
+        phoneVerificationExpires: null,
+        phoneVerificationChannel: null,
+      },
+    });
+  }
 }
+

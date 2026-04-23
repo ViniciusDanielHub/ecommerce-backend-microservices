@@ -4,14 +4,17 @@ import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { RegisterUseCase } from '../../domain/use-cases/register.use-case';
 import { LoginUseCase } from '../../domain/use-cases/login.use-case';
+import { LogoutUseCase } from '../../domain/use-cases/logout.use-case';
+import { ForgotPasswordUseCase } from '../../domain/use-cases/forgot-password.use-case';
+import { ResetPasswordUseCase } from '../../domain/use-cases/reset-password.use-case';
+import { VerifyEmailUseCase } from '../../domain/use-cases/verify-email.use-case';
+import { SendPhoneVerificationUseCase } from '../../domain/use-cases/send-phone-verification.use-case';
+import { VerifyPhoneUseCase } from '../../domain/use-cases/verify-phone.use-case';
 import { UserRepository } from '../../infrastructure/repositories/user.repository';
 import { PrismaService } from '../../infrastructure/database/prisma.service';
-import { LogoutUseCase } from 'src/domain/use-cases/logout.use-case';
-import { ForgotPasswordUseCase } from 'src/domain/use-cases/forgot-password.use-case';
-import { ResetPasswordUseCase } from 'src/domain/use-cases/reset-password.use-case';
-import { JwtAuthGuard } from 'src/shared/guards/jwt-auth.guard';
-import { EmailService } from 'src/infrastructure/email/email.service';
-import { VerifyEmailUseCase } from 'src/domain/use-cases/verify-email.use-case';
+import { JwtAuthGuard } from '../../shared/guards/jwt-auth.guard';
+import { EmailService } from '../../infrastructure/email/email.service';
+import { PhoneService } from '../../infrastructure/phone/phone.service';
 
 @Module({
   imports: [
@@ -34,7 +37,10 @@ import { VerifyEmailUseCase } from 'src/domain/use-cases/verify-email.use-case';
     ResetPasswordUseCase,
     JwtAuthGuard,
     EmailService,
+    PhoneService,
     VerifyEmailUseCase,
+    SendPhoneVerificationUseCase,
+    VerifyPhoneUseCase,
     {
       provide: 'USER_REPOSITORY',
       useClass: UserRepository,
@@ -47,4 +53,4 @@ import { VerifyEmailUseCase } from 'src/domain/use-cases/verify-email.use-case';
     },
   ],
 })
-export class AuthModule {}
+export class AuthModule { }

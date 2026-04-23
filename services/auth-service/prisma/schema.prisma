@@ -29,9 +29,13 @@ model User {
   emailVerificationExpires DateTime?
   avatar                   String?
   phone                    String?
+  phoneVerifiedAt          DateTime?
+  phoneVerificationCode    String?
+  phoneVerificationExpires DateTime?
+  phoneVerificationChannel String?   // 'sms' | 'whatsapp'
   address                  String?
   preferences              Json?
-  
+
   createdAt                DateTime  @default(now())
   updatedAt                DateTime  @updatedAt
 
@@ -48,7 +52,7 @@ model Session {
   refreshToken String   @unique
   expiresAt    DateTime
   createdAt    DateTime @default(now())
-  
+
   user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@map("sessions")
@@ -68,3 +72,4 @@ model AuditLog {
 
   @@map("audit_logs")
 }
+

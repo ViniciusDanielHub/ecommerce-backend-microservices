@@ -1,4 +1,4 @@
-import { Role } from '../../shared/types'; 
+import { Role } from '../../shared/types';
 
 export class UserEntity {
   constructor(
@@ -19,7 +19,11 @@ export class UserEntity {
     public readonly preferences?: any | null,
     public readonly createdAt?: Date,
     public readonly updatedAt?: Date,
-  ) {}
+    public readonly phoneVerifiedAt?: Date | null,
+    public readonly phoneVerificationCode?: string | null,
+    public readonly phoneVerificationExpires?: Date | null,
+    public readonly phoneVerificationChannel?: string | null,
+  ) { }
 
   static create(data: {
     name: string;
@@ -28,7 +32,7 @@ export class UserEntity {
     role?: Role;
   }): UserEntity {
     return new UserEntity(
-      '', // ID será gerado pelo banco
+      '', //id gerado pelo banco
       data.name,
       data.email,
       data.password,
@@ -46,11 +50,29 @@ export class UserEntity {
       isActive: this.isActive,
       lastLoginAt: this.lastLoginAt,
       emailVerifiedAt: this.emailVerifiedAt,
+      phoneVerifiedAt: this.phoneVerifiedAt,
+      phone: this.phone ? this.maskPhone(this.phone) : null,
       avatar: this.avatar,
-      phone: this.phone,
       address: this.address,
       createdAt: this.createdAt,
       updatedAt: this.updatedAt,
     };
+  }
+
+  /** Indica se a conta está 100% verificada (email + telefone) */
+  get isFullyVerified(): boolean {
+    return !!this.emailVerifiedAt && !!this.phoneVerifiedAt;
+  }
+
+  /** Indica qual etapa de verificação está pendente */
+  get pendingVerification(): 'email' | 'phone' | null {
+    if (!this.emailVerifiedAt) return 'email';
+    if (!this.phoneVerifiedAt) return 'phone';
+    return null;
+  }
+
+  private maskPhone(phone: string): string {
+    if (phone.length < 8) return '****';
+    return phone.slice(0, 4) + '****' + phone.slice(-4);
   }
 }

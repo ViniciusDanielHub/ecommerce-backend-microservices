@@ -15,7 +15,8 @@ import {
   getPasswordChangedTemplate,
   getPasswordChangedTextTemplate,
 } from './templates/password-changed.template';
-import { getEmailVerificationTemplate, getEmailVerificationTextTemplate } from './templates/email-verification.template';
+import { getAccountFullyVerifiedTemplate, getAccountFullyVerifiedTextTemplate, getEmailVerificationTemplate, getEmailVerificationTextTemplate } from './templates/email-verification.template';
+
 
 @Injectable()
 export class EmailService implements IEmailService {
@@ -133,6 +134,19 @@ export class EmailService implements IEmailService {
         'Confirme seu Email'
       ),
       text: getEmailVerificationTextTemplate(name, verificationLink),
+    });
+  }
+
+  async sendAccountFullyVerifiedEmail(email: string, name: string): Promise<void> {
+    await this.sendEmail({
+      to: email,
+      subject: '🎉 Sua conta está 100% ativa - MarketPlace',
+      html: getEmailLayout(
+        getAccountFullyVerifiedTemplate(name),
+        '#4CAF50',
+        'Conta Totalmente Ativa',
+      ),
+      text: getAccountFullyVerifiedTextTemplate(name),
     });
   }
 }

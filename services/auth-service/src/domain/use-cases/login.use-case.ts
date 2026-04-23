@@ -25,7 +25,9 @@ export class LoginUseCase {
     }
 
     if (!user.emailVerifiedAt) {
-      throw new UnauthorizedException('Confirme seu email antes de fazer login. Verifique sua caixa de entrada.');
+      throw new UnauthorizedException(
+        'Confirme seu email antes de fazer login. Verifique sua caixa de entrada.',
+      );
     }
 
     // Gerar tokens
@@ -37,10 +39,17 @@ export class LoginUseCase {
     const hashedRefreshToken = await bcrypt.hash(refreshToken, 10);
     await this.userRepository.updateRefreshToken(user.id, hashedRefreshToken);
 
+    const phoneVerified = !!user.phoneVerifiedAt;
+
     return {
       access_token: accessToken,
       refresh_token: refreshToken,
       user: user.toPublic(), 
+      account_status: {
+        email_verified: true,
+        phone_verified: phoneVerified,
+        warning: phoneVerified ? null : 'Verifique seu número de telefone para maior segurança da conta.',
+      },
     };
   }
 }

@@ -12,6 +12,10 @@ import { ResetPasswordUseCase } from 'src/domain/use-cases/reset-password.use-ca
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { VerifyEmailUseCase } from 'src/domain/use-cases/verify-email.use-case';
+import { SendPhoneVerificationUseCase } from 'src/domain/use-cases/send-phone-verification.use-case';
+import { VerifyPhoneUseCase } from 'src/domain/use-cases/verify-phone.use-case';
+import { SendPhoneVerificationDto, VerifyPhoneDto } from './dto/phone-verification.dto';
+
 
 @Controller('auth')
 export class AuthController {
@@ -22,6 +26,8 @@ export class AuthController {
     private readonly forgotPasswordUseCase: ForgotPasswordUseCase,   
     private readonly resetPasswordUseCase: ResetPasswordUseCase, 
     private readonly verifyEmailUseCase: VerifyEmailUseCase,
+    private readonly sendPhoneVerificationUseCase: SendPhoneVerificationUseCase,
+    private readonly verifyPhoneUseCase: VerifyPhoneUseCase,
   ) { }
 
   // ✅ Método privado para converter role
@@ -55,6 +61,11 @@ export class AuthController {
     return this.loginUseCase.execute(loginDto.email, loginDto.password);
   }
 
+  @Get('verify-email')
+  async verifyEmail(@Query('token') token: string) {
+    return this.verifyEmailUseCase.execute(token);
+  }
+
   @Post('logout')
   @UseGuards(JwtAuthGuard)
   async logout(@Request() req: any) {
@@ -75,13 +86,33 @@ export class AuthController {
     );
   }
 
-  @Post('verify-email')
-  async verifyEmail(@Body() body: { token: string }) {
-    return this.verifyEmailUseCase.execute(body.token);
+  @Post('send-phone-verification')
+  async sendPhoneVerification(
+    @Body() dto: SendPhoneVerificationDto,
+  ) {
+    return this.sendPhoneVerificationUseCase.execute(
+      dto.email,
+      dto.phone,
+      dto.channel,
+    );
   }
 
-  @Get('verify-email')
-  async verifyEmailGet(@Query('token') token: string) {
-    return this.verifyEmailUseCase.execute(token);
+  @Post('verify-phone')
+  async verifyPhone(
+    @Body() dto: VerifyPhoneDto,
+  ) {
+    return this.verifyPhoneUseCase.execute(dto.email, dto.code);
   }
+
+  @Post('resend-phone-verification')
+  async resendPhoneVerification(
+    @Body() dto: SendPhoneVerificationDto,
+  ) {
+    return this.sendPhoneVerificationUseCase.execute(
+      dto.email,
+      dto.phone,
+      dto.channel,
+    );
+  }
+
 }
