@@ -73,6 +73,10 @@ export class UserRepository implements IUserRepository {
       userData.preferences,
       userData.createdAt,
       userData.updatedAt,
+      userData.phoneVerifiedAt,        // ← add this
+      userData.phoneVerificationCode,  // ← add this
+      userData.phoneVerificationExpires, // ← add this
+      userData.phoneVerificationChannel,
     );
   }
 
