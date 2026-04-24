@@ -129,6 +129,7 @@ services:
     volumes:
       - ./api-gateway:/app
       - /app/node_modules
+      - /app/dist
 
 volumes:
   auth_db_data:
