@@ -1,142 +1,162 @@
-import { Injectable, HttpException, HttpStatus, Body, Post } from '@nestjs/common';
+import { Injectable, HttpException, HttpStatus } from '@nestjs/common';
 import { MicroserviceClientService } from '../../shared/services/microservice-client.service';
 import { firstValueFrom } from 'rxjs';
+import { RegisterDto } from './dto/register.dto';
+import { LoginDto } from './dto/login.dto';
+import { RefreshTokenDto } from './dto/refresh-token.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
 import { SendPhoneVerificationDto, VerifyPhoneDto } from './dto/phone-verification.dto';
+import {
+  RegisterResponse,
+  VerifyEmailResponse,
+  LoginResponse,
+  RefreshTokenResponse,
+  LogoutResponse,
+  ForgotPasswordResponse,
+  ResetPasswordResponse,
+  ValidateTokenResponse,
+  SendPhoneVerificationResponse,
+  VerifyPhoneResponse,
+} from './interfaces/index'
+
+type ServiceError = {
+  response?: {
+    status?: number;
+    data?: { message?: string; error?: string };
+  };
+};
 
 @Injectable()
 export class AuthService {
   constructor(
     private readonly microserviceClient: MicroserviceClientService,
-    private readonly authService: AuthService
-  ) {}
+  ) { }
 
-  async register(registerData: any) {
+  async register(registerData: RegisterDto): Promise<RegisterResponse> {
     try {
-      const result = await firstValueFrom(
-        this.microserviceClient.post('auth', '/auth/register', registerData)
+      return await firstValueFrom(
+        this.microserviceClient.post<RegisterResponse>('auth', '/auth/register', registerData),
       );
-      return result;
     } catch (error) {
       this.handleServiceError(error, 'Erro ao registrar usuário');
     }
   }
 
-  async verifyEmail(token: string) {
+  async verifyEmail(token: string): Promise<VerifyEmailResponse> {
     try {
-      const result = await firstValueFrom(
-        this.microserviceClient.get('auth', `/auth/verify-email?token=${token}`)
+      return await firstValueFrom(
+        this.microserviceClient.get<VerifyEmailResponse>('auth', `/auth/verify-email?token=${token}`),
       );
-      return result;
     } catch (error) {
       this.handleServiceError(error, 'Erro ao verificar email');
     }
   }
 
-  async login(loginData: any) {
+  async login(loginData: LoginDto): Promise<LoginResponse> {
     try {
-      const result = await firstValueFrom(
-        this.microserviceClient.post('auth', '/auth/login', loginData)
+      return await firstValueFrom(
+        this.microserviceClient.post<LoginResponse>('auth', '/auth/login', loginData),
       );
-      return result;
     } catch (error) {
       this.handleServiceError(error, 'Erro ao fazer login');
     }
   }
 
-  async refreshToken(refreshData: any) {
+  async refreshToken(refreshData: RefreshTokenDto): Promise<RefreshTokenResponse> {
     try {
-      const result = await firstValueFrom(
-        this.microserviceClient.post('auth', '/auth/refresh', refreshData)
+      return await firstValueFrom(
+        this.microserviceClient.post<RefreshTokenResponse>('auth', '/auth/refresh', refreshData),
       );
-      return result;
     } catch (error) {
       this.handleServiceError(error, 'Erro ao renovar token');
     }
   }
 
-  async logout(authorization: string) {
+  async logout(authorization: string): Promise<LogoutResponse> {
     try {
       const headers = { Authorization: authorization };
-      const result = await firstValueFrom(
-        this.microserviceClient.post('auth', '/auth/logout', {}, headers)
+      const data = await firstValueFrom(
+        this.microserviceClient.post<unknown>('auth', '/auth/logout', {}, headers),
       );
 
-      return {
-        success: true,
-        message: 'Logout realizado com sucesso',
-        data: result,
-      };
+      return { success: true, message: 'Logout realizado com sucesso', data };
     } catch (error) {
       this.handleServiceError(error, 'Erro ao fazer logout');
     }
   }
 
-  async forgotPassword(email: string) {
+  async forgotPassword(email: string): Promise<ForgotPasswordResponse> {
     try {
-      const result = await firstValueFrom(
-        this.microserviceClient.post('auth', '/auth/forgot-password', { email })
+      return await firstValueFrom(
+        this.microserviceClient.post<ForgotPasswordResponse>('auth', '/auth/forgot-password', { email }),
       );
-      return result;
     } catch (error) {
       this.handleServiceError(error, 'Erro ao solicitar recuperação de senha');
     }
   }
 
-  async resetPassword(resetData: any) {
+  async resetPassword(resetData: ResetPasswordDto): Promise<ResetPasswordResponse> {
     try {
-      const result = await firstValueFrom(
-        this.microserviceClient.post('auth', '/auth/reset-password', resetData)
+      return await firstValueFrom(
+        this.microserviceClient.post<ResetPasswordResponse>('auth', '/auth/reset-password', resetData),
       );
-      return result;
     } catch (error) {
       this.handleServiceError(error, 'Erro ao resetar senha');
     }
   }
 
-  async validateToken(token: string) {
+  async validateToken(token: string): Promise<ValidateTokenResponse> {
     try {
       const headers = { Authorization: `Bearer ${token}` };
-      const result = await firstValueFrom(
-        this.microserviceClient.get('auth', '/auth/validate', headers)
+      return await firstValueFrom(
+        this.microserviceClient.get<ValidateTokenResponse>('auth', '/auth/validate', headers),
       );
-      return result;
     } catch (error) {
       throw new HttpException('Token inválido', HttpStatus.UNAUTHORIZED);
     }
   }
 
-  private handleServiceError(error: any, message: string) {
-    const status = error.response?.status || HttpStatus.INTERNAL_SERVER_ERROR;
-    const errorMessage = error.response?.data?.message || message;
-    
+  async sendPhoneVerification(data: SendPhoneVerificationDto): Promise<SendPhoneVerificationResponse> {
+    try {
+      return await firstValueFrom(
+        this.microserviceClient.post<SendPhoneVerificationResponse>('auth', '/auth/send-phone-verification', data),
+      );
+    } catch (error) {
+      this.handleServiceError(error, 'Erro ao enviar verificação de telefone');
+    }
+  }
+
+  async verifyPhone(data: VerifyPhoneDto): Promise<VerifyPhoneResponse> {
+    try {
+      return await firstValueFrom(
+        this.microserviceClient.post<VerifyPhoneResponse>('auth', '/auth/verify-phone', data),
+      );
+    } catch (error) {
+      this.handleServiceError(error, 'Erro ao verificar telefone');
+    }
+  }
+
+  async resendPhoneVerification(data: SendPhoneVerificationDto): Promise<SendPhoneVerificationResponse> {
+    try {
+      return await firstValueFrom(
+        this.microserviceClient.post<SendPhoneVerificationResponse>('auth', '/auth/resend-phone-verification', data),
+      );
+    } catch (error) {
+      this.handleServiceError(error, 'Erro ao reenviar verificação de telefone');
+    }
+  }
+
+  private handleServiceError(error: ServiceError, message: string): never {
+    const status = error.response?.status ?? HttpStatus.INTERNAL_SERVER_ERROR;
+    const errorMessage = error.response?.data?.message ?? message;
+
     throw new HttpException(
       {
         message: errorMessage,
-        error: error.response?.data?.error || 'Service Error',
+        error: error.response?.data?.error ?? 'Service Error',
         statusCode: status,
       },
       status,
     );
-  }
-
-  @Post('send-phone-verification')
-  async sendPhoneVerification(@Body() data: SendPhoneVerificationDto) {
-    return this.authService.sendPhoneVerification(data);
-  }
-
-  @Post('verify-phone')
-  async verifyPhone(@Body() data: VerifyPhoneDto) {
-    return this.authService.verifyPhone(data);
-  }
-
-  async resendPhoneVerification(data: SendPhoneVerificationDto) {
-    try {
-      const result = await firstValueFrom(
-        this.microserviceClient.post('auth', '/auth/resend-phone-verification', data)
-      );
-      return result;
-    } catch (error) {
-      this.handleServiceError(error, 'Erro ao reenviar verificação de telefone');
-    }
   }
 }
